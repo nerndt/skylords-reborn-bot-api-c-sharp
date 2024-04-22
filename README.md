@@ -1,8 +1,10 @@
 ![Skylords Reborn Logo](https://gitlab.com/skylords-reborn/rust-libraries/-/blob/main/images/skylords_reborn_logo.png)
 
+This was cloned from https://gitlab.com/skylords-reborn/skylords-reborn-bot-api-c-sharp. The goal is to make a Pvp bot that can be loaded on various PvP maps to play against other bots or humans.
+
 # Skylords Reborn Bot API Rust
 
-This repository contains an interface for bots to interact with the game BattleForge.
+This repository contains an interface for bots to interact with the game BattleForge. 
 
 ## Repo Structure
 

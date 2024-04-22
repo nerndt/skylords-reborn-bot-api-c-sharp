@@ -2912,9 +2912,9 @@ namespace Api
         [JsonPropertyName("projectiles")]
         public required Projectile[] Projectiles { get; set; }
         [JsonPropertyName("power_slots")]
-        public required PowerSlot[] PowerSlots { get; set; }
+        public required PowerSlot[] PowerSlots { get; set; } // Wells
         [JsonPropertyName("token_slots")]
-        public required TokenSlot[] TokenSlots { get; set; }
+        public required TokenSlot[] TokenSlots { get; set; } // Orbs
         [JsonPropertyName("ability_world_objects")]
         public required AbilityWorldObject[] AbilityWorldObjects { get; set; }
         [JsonPropertyName("squads")]

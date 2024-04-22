@@ -2,6 +2,7 @@
 using Example;
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace TryEverything
 {
@@ -31,11 +32,26 @@ namespace TryEverything
                     Maps.NadaiSpectator,
             };
 
+        public enum OrbCost
+        {
+            Orb1 = 100,
+            Orb2 = 150,
+            Orb3 = 250,
+            Orb4 = 300,
+            Orb5 = 300,
+            Orb6 = 300,
+            Orb7 = 300,
+            Orb8 = 300,
+            Orb69 = 300
+        };
+
         private BotState botState;
 
         #region Info to track
         private Team team = new Team();
         private Team opponents = new Team();
+        private Dictionary<EntityId, Orb> orbs = new Dictionary<EntityId, Orb>();
+        private Dictionary<EntityId, Well> wells = new Dictionary<EntityId, Well>();
         #endregion Info to track
 
         public Deck[] DecksForMap(Maps map, string? name, ulong crc)
@@ -100,15 +116,15 @@ namespace TryEverything
                     },
                     orbTasks = new Tasks.OrbTasks
                     {
-                        getNearbyOrb = true,
-                        getNearbyWell = true,
+                        buildNearbyOrb = true,
+                        buildNearbyWell = true,
                         heal = false,
                         done = false
                     },
                     wellTasks = new Tasks.WellTasks
                     {
-                        getNearbyOrb = true,
-                        getNearbyWell = true,
+                        buildNearbyOrb = true,
+                        buildNearbyWell = true,
                         heal = false,
                         done = false
                     },
@@ -128,10 +144,14 @@ namespace TryEverything
 
         public void MatchStart(GameStartState state)
         {
-            var yourPlayerId = state.YourPlayerId;
+            // Get all players and their positions
+            // Get all orbs (Tokens) and their positions
+            // Get all wells (PowerSlots) and their positions
+
+            var yourPlayerId = team.myId = state.YourPlayerId;
             var entities = state.Entities;
             botState.myId = yourPlayerId;
-            Console.WriteLine($"My player ID is: {yourPlayerId}, I have deck: {botState.selectedDeck.Name}, and I own:");
+            ConsoleWriteLine(true, $"My player ID is: {yourPlayerId}, I have deck: {botState.selectedDeck.Name}, and I own:");
 #pragma warning disable CS8602 // Player must exist
             botState.myTeam = Array.Find(state.Players, p => p.Entity.Id == yourPlayerId).Entity.Team;
 #pragma warning restore CS8602
@@ -141,7 +161,7 @@ namespace TryEverything
                 if (player.Entity.Team != botState.myTeam)
                 {
                     botState.oponents.Add(player.Entity.Id);
-                    
+
                     opponents.Players.Add(player.Entity.Id, new Player(player.Entity.Id)); // Add all player to team
                 }
                 else
@@ -155,7 +175,7 @@ namespace TryEverything
             {
                 if (s.Entity.PlayerEntityId == yourPlayerId)
                 {
-                    Console.WriteLine($"Power slot: {s.Entity.Id} at {s.Entity.Position.X}/{s.Entity.Position.Z}");
+                    ConsoleWriteLine(true, $"Power slot: {s.Entity.Id} at {(int)s.Entity.Position.X}/{(int)s.Entity.Position.Z}");
                     botState.myStart = s.Entity.Position.To2D();
                 }
                 if (s.Entity.PlayerEntityId != null)
@@ -172,6 +192,22 @@ namespace TryEverything
             }
 
             #region Xander get other player info as well!
+            if (team != null)
+            {
+                List<EntityId> keyList = new List<EntityId>(team.Players.Keys);
+                foreach (EntityId p in keyList)
+                {
+                    ConsoleWriteLine(true, $"Team: {p} at {(int)team.Players[p].StartPos.X}:{(int)team.Players[p].StartPos.Y}");
+                }
+            }
+            if (opponents != null)
+            {
+                List<EntityId> keyList = new List<EntityId>(opponents.Players.Keys);
+                foreach (EntityId p in keyList)
+                {
+                    ConsoleWriteLine(true, $"Opponent: {p} at {(int)opponents.Players[p].StartPos.X}:{(int)opponents.Players[p].StartPos.Y}");
+                }
+            }
 
             #endregion Xander get other player info as well!
 
@@ -234,6 +270,8 @@ namespace TryEverything
         /// <returns></returns>
         public Command[] Tick(GameState state)
         {
+            bool showTickMessage = false;
+
             var currentTick = state.CurrentTick.V;
             var entities = state.Entities;
             var myArmy = new List<EntityId>();      // XL04202024 
@@ -298,52 +336,195 @@ namespace TryEverything
                 }
             }
 
-            Console.WriteLine($"Tick:{currentTick} opp:{target} pow:{(int)myPower} size:{myArmy.Count} oSize:{theirArmy.Count} oPow:{theirArmy}");
+            if (showTickMessage == true)
+            {
+                ConsoleWriteLine(true, $"Tick:{currentTick} opp:{target} pow:{(int)myPower} size:{myArmy.Count} oSize:{theirArmy.Count} oPow:{theirArmy}");
+            }
+
+            List<Command> commands = new List<Command>();
 
             var swiftclawTasks = SwiftclawTasks(currentTick, myPower, entities);
             if (swiftclawTasks != null)
             {
-                return new[] { swiftclawTasks };
-            } else // TODO other tasks
-            {
-                return Array.Empty<Command>();
-            }
+                commands.Add(swiftclawTasks);
+                //return new[] { swiftclawTasks };
+            } 
 
             #region XanderLord new tasks
             var orbTasks = OrbTasks(currentTick, myPower, entities);
             if (orbTasks != null)
             {
-                return new[] { orbTasks };
-            }
-            else // TODO other tasks
-            {
-                return Array.Empty<Command>();
+                commands.Add(orbTasks);
+                // return new[] { orbTasks };
             }
 
             var wellTasks = WellTasks(currentTick, myPower, entities);
             if (wellTasks != null)
             {
-                return new[] { wellTasks };
-            }
-            else // TODO other tasks
-            {
-                return Array.Empty<Command>();
+                commands.Add(wellTasks);
+                //return new[] { wellTasks };
             }
             #endregion XanderLord new tasks
+            return commands.ToArray();
         }
 
         #region XanderLord Methods
         // If a well is next to an orb to own it, then get it
-        private Command? OrbTasks(uint tick, float myPower, MapEntities entities)
+        private void SelectOrb()
         {
+
+        }
+
+        private Command? BuildWells(float myPower, out float powerRemaining)
+        {
+            List<EntityId> wellIds = wells.Keys.ToList();
+            powerRemaining = myPower;
+            int counter = 0;
+            for (int i = 0; i < wellIds.Count; i++)
+            {
+                {
+                    Position2D pos1 = wells[wellIds[i]].Pos;
+                    counter++;
+                    for (int j = counter; j < wellIds.Count; j++)
+                    {
+                        Position2D pos2 = wells[wellIds[j]].Pos;
+                        if (MathF.Sqrt(DistanceSquared(pos1, pos2)) < 15)
+                        {
+                            if (powerRemaining >= 150) // 150 should depend on how many orbs I have
+                            {
+                                powerRemaining -= 150; // 150 should depend on how many orbs I have
+                                ConsoleWriteLine(true, "Build Well");
+                                //tasks.buildNearbyWell = true;
+                                return new CommandPowerSlotBuild
+                                {
+                                    SlotId = wellIds[j],
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        private Command? BuildOrbs(float myPower, out float powerRemaining)
+        {
+            List<EntityId> obIds = orbs.Keys.ToList();
+            powerRemaining = myPower;
+            int counter = 0;
+            for (int i = 0; i < obIds.Count; i++)
+            {
+                {
+                    Position2D pos1 = orbs[obIds[i]].Pos;
+                    counter++;
+                    for (int j = counter; j < obIds.Count; j++)
+                    {
+                        Position2D pos2 = orbs[obIds[j]].Pos;
+                        if (MathF.Sqrt(DistanceSquared(pos1, pos2)) < 15)
+                        {
+                            if (powerRemaining >= 150) // 150 should depend on how many orbs I have
+                            {
+                                powerRemaining -= 150; // 150 should depend on how many orbs I have
+                                ConsoleWriteLine(true, "Build Orb");
+                                //tasks.buildNearbyOrb = true;
+                                return new CommandTokenSlotBuild
+                                {
+                                    SlotId = obIds[j],
+                                    Color = CreateOrbColor.Shadow
+                                };
+                            }
+                        }
+                    }
+                }
+            }
             return null;
         }
 
         // If another empty well or orb is next to an well to own it, then get it (as long as we have power and do not exceed 4 orbs)
-        private Command? WellTasks(uint tick, float myPower, MapEntities entities)
+
+        private Command? OrbTasks(uint tick, float myPower, MapEntities entities)
         {
+            var tasks = botState.tasks.orbTasks;
+            float powerRemaining = myPower;
+            if (tasks.done)
+                return null;
+
+            // Always heal, then get wells, then get orbs
+            int orbCost = (int)OrbCost.Orb1; // How many orbs do I have?
+            int orbHealth = 0;
+            int orbHealthLimit = 20;
+            int wellCost = 100; 
+            int wellHealth = 0;
+            int wellHealthLimit = 20;
+            if (tasks.buildNearbyWell == true)
+            {
+                BuildWells(myPower, out powerRemaining);
+            }
+            if (tasks.buildNearbyOrb == true)
+            {
+                BuildOrbs(powerRemaining, out powerRemaining);
+            }
+
+            //if (!tasks.heal && myPower >= (100 - wellHealth) && wellHealth < wellHealthLimit) // && botState.canPlayCardAt < tick)
+            //{
+            //}
+            //if (!tasks.buildNearbyWell && myPower >= 100) // && botState.canPlayCardAt < tick)
+            //{
+            //}
+            //// See how many orbs we currently have
+            //if (!tasks.buildNearbyOrb && myPower >= orbCost) // && botState.canPlayCardAt < tick)
+            //{
+            //}
             return null;
         }
+
+        // If another empty well or orb is next to an well to own it, then get it (as long as we have power and do not exceed 4 orbs)
+
+        private Command? WellTasks(uint tick, float myPower, MapEntities entities)
+        {
+            var tasks = botState.tasks.orbTasks;
+            float powerRemaining = myPower;
+            if (tasks.done)
+                return null;
+
+            // Always heal, then get wells, then get orbs
+            int orbCost = (int)OrbCost.Orb1; // How many orbs do I have?
+            int orbHealth = 0;
+            int orbHealthLimit = 20;
+            int wellCost = 100;
+            int wellHealth = 0;
+            int wellHealthLimit = 20;
+            if (tasks.buildNearbyWell == true)
+            {
+                BuildWells(myPower, out powerRemaining);
+            }
+            if (tasks.buildNearbyOrb == true)
+            {
+                BuildOrbs(powerRemaining, out powerRemaining);
+            }
+
+            //if (!tasks.heal && myPower >= (100 - wellHealth) && wellHealth < wellHealthLimit) // && botState.canPlayCardAt < tick)
+            //{
+            //}
+            //if (!tasks.buildNearbyWell && myPower >= 100) // && botState.canPlayCardAt < tick)
+            //{
+            //}
+            //// See how many orbs we currently have
+            //if (!tasks.buildNearbyOrb && myPower >= orbCost) // && botState.canPlayCardAt < tick)
+            //{
+            //}
+            return null;
+        }
+
+        public string prevousMessage = "";
+        public void ConsoleWriteLine(bool show, string text) {
+            if (show == true && prevousMessage != text)
+            {
+                Console.WriteLine(text);
+                prevousMessage = text;
+            }
+        }
+
         #endregion XanderLord Methods
 
         private Command? SwiftclawTasks(uint tick, float myPower, MapEntities entities)
@@ -355,7 +536,7 @@ namespace TryEverything
             if (!tasks.produceSwiftclaw && myPower >= 70 && botState.canPlayCardAt < tick)
             {
                 botState.canPlayCardAt = uint.MaxValue;
-                Console.WriteLine("produce swiftclaw");
+                ConsoleWriteLine(true, "produce swiftclaw");
                 tasks.produceSwiftclaw = true;
                 return new CommandProduceSquad
                 {
@@ -369,7 +550,7 @@ namespace TryEverything
                 if (swiftclaw != null)
                 {
                     tasks.swiftclaw = swiftclaw.Entity.Id;
-                    Console.WriteLine($"Swiftclaw = {swiftclaw.Entity.Id}");
+                    ConsoleWriteLine(true, $"Swiftclaw = {swiftclaw.Entity.Id}");
                     // We found him, but give him a task on next tick
                 }
                 return null;
@@ -378,7 +559,7 @@ namespace TryEverything
                 var swiftclaw = entities.Squads.FirstOrDefault(s => s.Entity.Id == tasks.swiftclaw);
                 if (swiftclaw == null)
                 {
-                    Console.WriteLine("Swiftclaw was killed");
+                    ConsoleWriteLine(true, "Swiftclaw was killed");
                     // Swiftclaw was killed, give up on this task set
                     tasks.done = true;
                     return null;
@@ -389,7 +570,7 @@ namespace TryEverything
                     {
                         botState.canPlayCardAt = uint.MaxValue;
                         tasks.buildPrimalDefender = true;
-                        Console.WriteLine("build Primal Defender");
+                        ConsoleWriteLine(true, "Build Primal Defender");
                         return new CommandBuildHouse{
                             CardPosition = 4,
                             Xy = pos.To2D(),
@@ -400,7 +581,7 @@ namespace TryEverything
                     {
                         if (myPower >= 150)
                         {
-                            Console.WriteLine("Token slot build");
+                            ConsoleWriteLine(true, "Token slot build");
                             tasks.buildTokenSlot = true;
                             return new CommandTokenSlotBuild
                             {
@@ -410,7 +591,7 @@ namespace TryEverything
                         } else if (!tasks.holdPosition)
                         {
                             tasks.holdPosition = true;
-                            Console.WriteLine("Swiftclaw hold position");
+                            ConsoleWriteLine(true, "Swiftclaw hold position");
                             return new CommandGroupHoldPosition
                             {
                                 Squads = new[] { tasks.swiftclaw }
@@ -426,7 +607,7 @@ namespace TryEverything
                     {
                         if (myPower >= 100)
                         {
-                            Console.WriteLine("Power slot build");
+                            ConsoleWriteLine(true, "Power slot build");
                             tasks.buildPowerSlot = true;
                             return new CommandPowerSlotBuild
                             {
@@ -436,7 +617,7 @@ namespace TryEverything
                         else if (!tasks.holdPosition)
                         {
                             tasks.holdPosition = true;
-                            Console.WriteLine("Swiftclaw hold position");
+                            ConsoleWriteLine(true, "Swiftclaw hold position");
                             return new CommandGroupHoldPosition
                             {
                                 Squads = new[] { tasks.swiftclaw }
@@ -452,7 +633,7 @@ namespace TryEverything
                         if (!tasks.holdPosition)
                         {
                             tasks.holdPosition = true;
-                            Console.WriteLine("Swiftclaw hold position");
+                            ConsoleWriteLine(true, "Swiftclaw hold position");
                             return new CommandGroupHoldPosition
                             {
                                 Squads = new[] { tasks.swiftclaw }
@@ -460,7 +641,7 @@ namespace TryEverything
                         } else if (!tasks.changeMode)
                         {
                             tasks.changeMode = true;
-                            Console.WriteLine("Swiftclaw change mode");
+                            ConsoleWriteLine(true, "Swiftclaw change mode");
                             return new CommandModeChange
                             {
                                 EntityId = tasks.swiftclaw,
@@ -468,7 +649,7 @@ namespace TryEverything
                             };
                         } else
                         {
-                            Console.WriteLine("Swiftclaw done");
+                            ConsoleWriteLine(true, "Swiftclaw done");
                             tasks.done = true;
                             return null;
                         }
@@ -482,7 +663,7 @@ namespace TryEverything
                             return null;
                         } else
                         {
-                            Console.WriteLine("Swiftclaw Patrol");
+                            ConsoleWriteLine(true, "Swiftclaw Patrol");
                             return new CommandGroupGoto
                             {
                                 Squads = new[] { tasks.swiftclaw },
@@ -507,6 +688,11 @@ namespace TryEverything
         private static float DistanceSquared(Position2D from, Position to)
         {
             return (from.X - to.X) * (from.X - to.X) + (from.Y - to.Z) * (from.Y - to.Z);
+        }
+
+        private static float DistanceSquared(Position2D from, Position2D to)
+        {
+            return (from.X - to.X) * (from.X - to.X) + (from.Y - to.Y) * (from.Y - to.Y);
         }
 
         private static readonly Deck TAINTED_FLORA_WITH_DEFENDER = new()
@@ -590,16 +776,28 @@ namespace TryEverything
 
             public class OrbTasks
             {
-                public bool getNearbyOrb;
-                public bool getNearbyWell;
+                //public required EntityId closestTokenSlot;
+                //public required Position2D closestTokenSlotPosition;
+                //public required EntityId closestPowerSlot;
+                //public required Position2D closestPowerSlotPosition;
+                //public required EntityId well;
+
+                public bool buildNearbyOrb;
+                public bool buildNearbyWell;
                 public bool heal;
                 public bool done;
             }
 
             public class WellTasks
             {
-                public bool getNearbyOrb;
-                public bool getNearbyWell;
+                //public required EntityId closestTokenSlot;
+                //public required Position2D closestTokenSlotPosition;
+                //public required EntityId closestPowerSlot;
+                //public required Position2D closestPowerSlotPosition;
+                //public required EntityId well;
+
+                public bool buildNearbyOrb;
+                public bool buildNearbyWell;
                 public bool heal;
                 public bool done;
             }

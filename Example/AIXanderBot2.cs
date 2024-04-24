@@ -1,18 +1,18 @@
 ﻿using Api;
-using Example;
+using Bots;
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace TryEverything
+namespace Bots
 {
-    //    /AI: add XanderAI TaintedFlora 4
+    //    /AI: add XanderAI2 TaintedFlora 4
 
     // Basic Strategies:
 
-    public class TryMyBot : IAspWrapperImpl
+    public class AIXanderBot2 : IAspWrapperImpl
     {
-        string IAspWrapperImpl.Name => "XanderAI";
+        string IAspWrapperImpl.Name => "XanderAI2";
 
         private readonly Maps[] SUPPORTED_MAPS = new[] {
                     Maps.HaladurSpectator,

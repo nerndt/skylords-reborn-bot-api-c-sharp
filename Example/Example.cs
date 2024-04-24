@@ -1,10 +1,9 @@
 ﻿using Api;
 
-namespace Example
+namespace Bots
 {
-    //    /AI: add CsExampleAI Tutorial 3
+    // /AI: add CsExampleAI Tutorial 4
     // Once the Elyon - spectator map is chosen in Sparring Grounds, write a command in the message such as:
-    // /AI: add XanderAI Tutorial 4
     // Which means call the AI script and add the bot called XanderAI, the deck Tutorial and the slot 4 (starting position on map for player)
     public class Example : IAspWrapperImpl
     {

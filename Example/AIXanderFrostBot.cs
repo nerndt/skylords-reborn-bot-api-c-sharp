@@ -1,11 +1,11 @@
 ﻿using Api;
 
-namespace Example
+namespace Bots
 {
-    //    /AI: add CsExampleAI Tutorial 4
-    public class MyBot : IAspWrapperImpl
+    //    /AI: add AIXanderFrost Tutorial 4
+    public class AIXanderFrostBot : IAspWrapperImpl
     {
-        string IAspWrapperImpl.Name => "CsExampleAIXanderlord";
+        string IAspWrapperImpl.Name => "AIXanderFrost";
 
         public Deck[] DecksForMap(Maps map, string? name, ulong crc)
         {

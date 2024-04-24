@@ -1,7 +1,7 @@
 ﻿using Api;
 using System.Drawing;
 
-namespace Example
+namespace Bots
 {
     // Track the information for each orb in the game
     public class Orb

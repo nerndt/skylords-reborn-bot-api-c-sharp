@@ -1,6 +1,6 @@
 ﻿using Api;
 
-namespace Example
+namespace Bots
 {
     // Track the information for each player in the game
     public class Player

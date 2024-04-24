@@ -2,7 +2,7 @@
 using System;
 using System.Diagnostics;
 
-namespace TryEverything
+namespace Bots
 {
     //    /AI: add CsTestAI TaintedFlora 4
     public class TryEverything : IAspWrapperImpl
@@ -200,6 +200,10 @@ namespace TryEverything
                     {
                         if (c.Command.CastSpellGod != null || c.Command.CastSpellGodMulti != null || c.Command.ProduceSquad != null || c.Command.BuildHouse != null)
                         {
+                            if (c.Command.ProduceSquad != null)
+                            {
+                                Console.WriteLine("CommandProduceSquad");
+                            }
                             botState.canPlayCardAt = currentTick + 10;
                             break;
                         }
@@ -215,7 +219,8 @@ namespace TryEverything
             var swiftclawTasks = SwiftclawTasks(currentTick, myPower, entities);
             if (swiftclawTasks != null)
             {
-                return new[] { swiftclawTasks };
+                Command[] commands = new[] { swiftclawTasks };
+                return commands;
             } else // TODO other tasks
             {
                 return Array.Empty<Command>();

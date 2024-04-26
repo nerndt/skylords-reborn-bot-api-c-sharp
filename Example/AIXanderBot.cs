@@ -14,6 +14,29 @@ namespace Bots
     // /AI: add XanderAI FireNature 4
     // Basic Strategies:
 
+    /* // What UltraLord Does
+     ##########################################################
+     # Where do i get the json
+     # 0 offline file
+     # 1 online file
+     SMJOnline=0
+     
+     ##########################################################
+     # What function should be running
+     WellKiller=1
+     UnitEruption=1
+     AvoidArea=1
+     BattleTable=1
+     ##########################################################
+     # What start type should be used
+     # 0:build 2 wells			Then 4
+     # 1:wait for OP				Then 0
+     # 2:Run to othere base
+     # 3:Spawn Card on Slot 1	Then 4
+     # 4:BattleMode
+     StartType=1    
+     ##########################################################
+     */
     public class AIXanderBot : IAspWrapperImpl
     {
         string IAspWrapperImpl.Name => "XanderAI";
@@ -46,7 +69,18 @@ namespace Bots
             Orb6 = 300,
             Orb7 = 300,
             Orb8 = 300,
-            Orb69 = 300
+            Orb9 = 300,
+            Orb10 = 300,
+        };
+
+        public enum Strategy
+        {
+            Attack = 0,
+            Defend = 1,
+            Build = 2, // Build wells first, then orbs
+            BuildWells = 3,
+            BuildOrbs = 4,
+            HoldPosition = 5,
         };
 
         private Command? Attack(EntityId target, List<EntityId> squads, int unitsNeededBeforeAttack)
@@ -66,6 +100,13 @@ namespace Bots
                 Console.WriteLine("Army must have {0} units to attack", unitsNeededBeforeAttack);
                 return null;
             }
+            else if (squads.Count % unitsNeededBeforeAttack == 0)
+            {
+                // Create Squad and then attack
+                Command cmd = new CommandProduceSquad { CardPosition = 1, Xy = botState.myStart };
+                Console.WriteLine("Army created in groups of {0} units to attack", unitsNeededBeforeAttack);
+                return cmd;
+            }
             else
             {
                 Console.WriteLine("Attack target at {0}", target.V);
@@ -84,6 +125,7 @@ namespace Bots
                 //}
                 botState.canPlayCardAt = uint.MaxValue;
                 Console.WriteLine("CommandProduceSquad CardPosition:{0} XY:{1}", cardPosition, botState.myStart);
+                // return new CommandProduceSquad { CardPosition = 1, Xy = botState.myStart };
                 return new CommandProduceSquad { CardPosition = cardPosition, Xy = botState.myStart };
             }
             else
@@ -454,7 +496,7 @@ namespace Bots
             Deck? currentDeck = myDecks.FirstOrDefault(d => d.Name == deckName);
             if (currentDeck != null)
             {
-                return Strategy(state, (Deck)currentDeck);
+                return SendCommands(state, (Deck)currentDeck);
             }
             return commands.ToArray();
         }
@@ -606,7 +648,7 @@ namespace Bots
             return null;
         }
 
-        public Command[] Strategy(GameState state, Deck currentDeck)
+        public Command[] SendCommands(GameState state, Deck currentDeck)
         {
             var currentTick = state.CurrentTick;
             var entities = state.Entities;
@@ -622,6 +664,18 @@ namespace Bots
                             {
                                 Console.WriteLine("CommandProduceSquad");
                             }
+                            if (c.Command.BuildHouse != null)
+                            {
+                                Console.WriteLine("CommandBuildHouse");
+                            }
+                            if (c.Command.CastSpellGod != null)
+                            {
+                                Console.WriteLine("CommandCastSpellGod");
+                            }
+                            if (c.Command.CastSpellGodMulti != null)
+                            {
+                                Console.WriteLine("CommandCastSpellGodMulti");
+                            }
                             botState.canPlayCardAt = currentTick.V + 10;
                             break;
                         }
@@ -636,11 +690,9 @@ namespace Bots
             switch (currentDeck.Name)
             {
                 case "TaintedFlora":
-                    break;
                 case "BattleGrounds":
-                    break;
                 case "FireNature":
-                    if (botState.isGameStart == true || currentTick.V % 10 == 0) // Try to do stuff every second instead of every 1/10 second
+                    if (botState.isGameStart == true || currentTick.V % 5 == 0) // Try to do stuff every 0.5 second instead of every 1/10 second
                     {
                         if (botState.isGameStart == true)
                         {
@@ -671,24 +723,30 @@ namespace Bots
                         var player = Array.Find(state.Players, p => p.Id == botState.myId);
                         if (player == null) { return commands.ToArray(); }
                         var myPower = player.Power;
-                        var myOrb = state.Entities.TokenSlots.FirstOrDefault(item => item.Entity.PlayerEntityId == botState.myId);
-                        var myWell = state.Entities.PowerSlots.FirstOrDefault(item => item.Entity.PlayerEntityId == botState.myId);
-                        var enemyOrb = state.Entities.TokenSlots.FirstOrDefault(item => item.Entity.PlayerEntityId != null && item.Entity.PlayerEntityId != botState.myId);
-                        var enemyWell = state.Entities.PowerSlots.FirstOrDefault(item => item.Entity.PlayerEntityId != null && item.Entity.PlayerEntityId != botState.myId);
+                        //var myOrb = state.Entities.TokenSlots.FirstOrDefault(item => item.Entity.PlayerEntityId == botState.myId);
+                        //var myWell = state.Entities.PowerSlots.FirstOrDefault(item => item.Entity.PlayerEntityId == botState.myId);
+                        //var enemyOrb = state.Entities.TokenSlots.FirstOrDefault(item => item.Entity.PlayerEntityId != null && item.Entity.PlayerEntityId != botState.myId);
+                        //var enemyWell = state.Entities.PowerSlots.FirstOrDefault(item => item.Entity.PlayerEntityId != null && item.Entity.PlayerEntityId != botState.myId);
+                        
                         TokenSlot[] myOrbs = Array.FindAll(state.Entities.TokenSlots, x => x.Entity.PlayerEntityId == botState.myId);
                         PowerSlot[] myWells = Array.FindAll(state.Entities.PowerSlots, x => x.Entity.PlayerEntityId == botState.myId);
+                        BarrierSet[] myWalls = Array.FindAll(state.Entities.BarrierSets, x => x.Entity.PlayerEntityId == botState.myId);
+                        PlayerEntity[] myPlayers = Array.FindAll(state.Players, x => x.Id == botState.myId);
                         TokenSlot[] enemyOrbs = Array.FindAll(state.Entities.TokenSlots, x => (x.Entity.PlayerEntityId != botState.myId || x.Entity.PlayerEntityId != null));
                         PowerSlot[] enemyWells = Array.FindAll(state.Entities.PowerSlots, x => (x.Entity.PlayerEntityId != botState.myId || x.Entity.PlayerEntityId != null));
+                        BarrierSet[] enemyWalls = Array.FindAll(state.Entities.BarrierSets, x => (x.Entity.PlayerEntityId != botState.myId || x.Entity.PlayerEntityId != null));
+                        PlayerEntity[] enemyPlayers = Array.FindAll(state.Players, x => x.Id != botState.myId || x.Id != null);
                         TokenSlot[] emptyOrbs = Array.FindAll(state.Entities.TokenSlots, x => x.Entity.PlayerEntityId == null);
                         PowerSlot[] emptyWells = Array.FindAll(state.Entities.PowerSlots, x => x.Entity.PlayerEntityId == null);
+                        BarrierSet[] emptyWalls = Array.FindAll(state.Entities.BarrierSets, x => x.Entity.PlayerEntityId == null);
 
-                        if (botState.isGameStart == true || currentTick.V % 10 == 0) // Try to do stuff every 2 seconds instead of every 1/10 second
+                        if (botState.isGameStart == true || currentTick.V % 5 == 0) // Try to do stuff every 0.5 seconds instead of every 1/10 second
                         {
                             // If we have power greater than the cost of the unit, we want to create the unit
                             // Deck CardId is not OfficialCardId!!!
                             int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[0]; // Starting unit for AI
                             
-                            Console.WriteLine("Tick CardID:{0}", unitOfficialCardId);
+                            // Console.WriteLine("Tick CardID:{0}", unitOfficialCardId);
                             int unitPower = 75; // Nomad power cost - should be able to find info about card
                             if (unitOfficialCardId != 0) // Not a card
                             {
@@ -724,7 +782,7 @@ namespace Bots
                                 }
                                 var spawn = SpawnUnit(myArmy, myPower, unitPower, currentTick.V);
                                 var target = new EntityId(0u);
-                                foreach (var s in state.Entities.TokenSlots)
+                                foreach (var s in state.Entities.TokenSlots) // Attack Orbs
                                 {
                                     if (s.Entity.PlayerEntityId != null && botState.oponents.Contains(s.Entity.PlayerEntityId))
                                     {
@@ -737,6 +795,14 @@ namespace Bots
                                     if (enemyOrbs.Length > 0)
                                     {
                                         target = enemyOrbs[0].Entity.Id;
+                                    }
+                                    else if (enemyWells.Length > 0)
+                                    {
+                                        target = enemyWells[0].Entity.Id;
+                                    }
+                                    else if (enemyPlayers.Length > 0)
+                                    {
+                                        target = enemyPlayers[0].Id;
                                     }
                                 }
                                 var attack = Attack(target, myArmy, 3);

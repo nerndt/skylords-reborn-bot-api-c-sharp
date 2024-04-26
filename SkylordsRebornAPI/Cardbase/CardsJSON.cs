@@ -5,6 +5,7 @@
 
 using Newtonsoft.Json;
 using SkylordsRebornAPI.Cardbase.Cards;
+using System;
 using System.Collections.Generic;
 
 namespace SkylordsRebornAPI.Cardbase
@@ -184,109 +185,109 @@ namespace SkylordsRebornAPI.Cardbase
         public string cardName { get; set; }
         public string cardNameSimple { get; set; }
         public string cardNameImage { get; set; }
-        public List<int> officialCardIds { get; set; }
+        public List<int> officialCardIds { get; set; } // First position is one used to Import Card in game
         public string description { get; set; }
-        public int edition { get; set; }
-        public int color { get; set; }
-        public int promo { get; set; }
-        public int rarity { get; set; }
-        public int orbsTotal { get; set; }
-        public int orbsNeutral { get; set; }
-        public int orbsFire { get; set; }
-        public int orbsShadow { get; set; }
-        public int orbsNature { get; set; }
-        public int orbsFrost { get; set; }
-        public int orbsFireShadow { get; set; }
-        public int orbsNatureFrost { get; set; }
-        public int orbsFireNature { get; set; }
-        public int orbsShadowFrost { get; set; }
-        public int orbsShadowNature { get; set; }
-        public int orbsFireFrost { get; set; }
-        public int affinity { get; set; }
-        public int type { get; set; }
-        public string unitModel { get; set; }
+        public int edition { get; set; } // 0 Twilight, 1 Renegade, 2 Lost Souls, 3 Amii, 4 Rebirth
+        public int color { get; set; } // 0 Neutral, Fire, Shadow, Nature, Frost, Bandits, Stonekin, Twilight, Lost Souls, Amii
+        public int promo { get; set; } // 0 No, 1 Yes
+        public int rarity { get; set; } // COmmon, Uncommon, Rare, Ultra Rare
+        public int orbsTotal { get; set; } // 1, 2, 3, 4
+        public int orbsNeutral { get; set; } // 0, 1, 2, 3, 4
+        public int orbsFire { get; set; } // 0, 1, 2, 3, 4
+        public int orbsShadow { get; set; } // 0, 1, 2, 3, 4
+        public int orbsNature { get; set; } // 0, 1, 2, 3, 4
+        public int orbsFrost { get; set; } // 0, 1, 2, 3, 4
+        public int orbsFireShadow { get; set; } // 0, 1, 2, 3, 4
+        public int orbsNatureFrost { get; set; } // 0, 1, 2, 3, 4
+        public int orbsFireNature { get; set; } // 0, 1, 2, 3, 4
+        public int orbsShadowFrost { get; set; } // 0, 1, 2, 3, 4
+        public int orbsShadowNature { get; set; } // 0, 1, 2, 3, 4
+        public int orbsFireFrost { get; set; } // 0, 1, 2, 3, 4
+        public int affinity { get; set; } // None, Fire, Nature, Shadow, Frost
+        public int type { get; set; } // Unit, Building, Spell
+        public string unitModel { get; set; } // Non-Units, Amazon, Atrocity, Balrog, Behemoth, Bird, Bow, Canine, Claw, Dancer, Dragon, Fighter, Floater, Guardian, Head, Insect, Mage, Minion, Quadraped, Raptor, Rider, Rifle, Roughneck, Ruffian, Serpent, Ship, Skyelf, Spear, Titan, Wagon, Worm, Unique
         public string category { get; set; }
-        public string unitSpecies { get; set; }
-        public string unitClass { get; set; }
-        public string buildingClass { get; set; }
-        public string spellClass { get; set; }
-        public int gender { get; set; }
-        public int movementType { get; set; }
-        public int attackType { get; set; }
-        public int offenseType { get; set; }
-        public int defenseType { get; set; }
-        public int maxCharges { get; set; }
-        public int squadSize { get; set; }
-        public int starterCard { get; set; }
+        public string unitSpecies { get; set; } // Non-Units, Amii, Ancient, Artifact, Beast, Demon, Dragonkin, Elemental, Elf, Forestkin, Giant, Human, Kobold, Ogre, Orc, Primordial, Spirit, Undead, Special
+        public string unitClass { get; set; } // Non-Units, Archer, Commander, Corrupter, Crusader, Destroyer, Dominatior, Gladiatore, Marauder, Soldier, Supporter, Wizard, Special
+        public string buildingClass { get; set; } // Non-Buildings, Artillary, Barrier, Device, Fortress, Hut, Shrine, Statue, Tower
+        public string spellClass { get; set; } // Non-Spells, Arcane, Enchantment, Spell
+        public int gender { get; set; } // Non-Units, Unspecified, Male, Female
+        public int movementType { get; set; } // Non-Units, Ground, Flying
+        public int attackType { get; set; } // Non-Units, Melee, Ranged
+        public int offenseType { get; set; } // Non-Units, Small, Meidum, Large, Extra Large, Special
+        public int defenseType { get; set; } // Non-Units, Small, Meidum, Large, Extra Large
+        public int maxCharges { get; set; } // 4, 8, 12, 16, 20, 24
+        public int squadSize { get; set; } // Spells, Buildings, 1, 2, 4, 6
+        public int starterCard { get; set; } // Non-Starter, Starter
         public List<int> powerCost { get; set; }
         public List<int> damage { get; set; }
         public List<int> health { get; set; }
-        public List<int> boosters { get; set; }
-        public List<string> upgradeMaps { get; set; }
+        public List<int> boosters { get; set; } // None, Mini, General, Fire, Shadow, Nature, Frost, Bandits, Stonekin, Twilight, Lost Souls, Amii, Fire/Frost
+        public List<string> upgradeMaps { get; set; } // None, Encounter With Twilight, Siege of Hope, Defending Hope, The Soultree, The Treasure Fleet, Behind Enemy Lines, Mo, Ocean, Oracle, Crusade, Sunbridge, Nightmare Shard, Nightmare's End, The Insane God, Slave master, Convoy, Bad Harvest, King of the Giants, Titan, The Dwarven Riddle, The guns of Lyr, Blight, Raven's End, Empire,  
         public List<Ability> abilities { get; set; }
     }
 
     // List<SkylordsRebornCard> myDeserializedClass = JsonConvert.DeserializeObject<List<SkylordsRebornCard>>(myJsonResponse);
     public class SkylordsRebornCard
-        {
-            /*
-            Notes: From Maze on Discord application. If you need a tiny bit of information, I also created a random deck generator a while back: https://smj.cards/deck?random=true
+    {
+        /*
+        Notes: From Maze on Discord application. If you need a tiny bit of information, I also created a random deck generator a while back: https://smj.cards/deck?random=true
 
-           The correct official api docs can be found here: https://hub.backend.skylords.eu/api/docs/
+       The correct official api docs can be found here: https://hub.backend.skylords.eu/api/docs/
 
-           All others might be out of date, with the cardbase definitely being out of date.
+       All others might be out of date, with the cardbase definitely being out of date.
 
-           The endpoint that might be of interest for you is /api/auctions/cards, some of the data might not be correct though, as it disregards ' in names, doesn't have all hybrid orbs (FireNature).
+       The endpoint that might be of interest for you is /api/auctions/cards, some of the data might not be correct though, as it disregards ' in names, doesn't have all hybrid orbs (FireNature).
 
-           You can get all the card data through: https://hub.backend.skylords.eu/api/auctions/cards?id=all
+       You can get all the card data through: https://hub.backend.skylords.eu/api/auctions/cards?id=all
 
-           If you need a bit more in depth card data, you could use the api I provide. The data should be mostly up to date except for the abilities and can be found here: https://smj.cards/api/cards
+       If you need a bit more in depth card data, you could use the api I provide. The data should be mostly up to date except for the abilities and can be found here: https://smj.cards/api/cards
 
-           How to Upload Card images:
-           I downloaded them from the wiki, or extracted them from the game's pack files. they are dynamically generated from the different parts, and I also expose them through an api:
-           https://smj.cards/api/images/fullCard/00
+       How to Upload Card images:
+       I downloaded them from the wiki, or extracted them from the game's pack files. they are dynamically generated from the different parts, and I also expose them through an api:
+       https://smj.cards/api/images/fullCard/00
 
-           with the option to specify some stuff
+       with the option to specify some stuff
 
-           https://smj.cards/api/images/fullCard/00?upgrades=2&charges=1
+       https://smj.cards/api/images/fullCard/00?upgrades=2&charges=1
 
-           How to upload a deck into the game:
+       How to upload a deck into the game:
 
-           Make a computer application that to generate a random deck and provide codes to import the deck ingame.
-           There are a few different code versions that work ingame:
+       Make a computer application that to generate a random deck and provide codes to import the deck ingame.
+       There are a few different code versions that work ingame:
 
-           Official Version M Code, Official Version A Code, Official Card IDs code
+       Official Version M Code, Official Version A Code, Official Card IDs code
 
-           with the array of official card ids being the simplest one
+       with the array of official card ids being the simplest one
 
-           How to import/export decks in the game:
-           simply type /importdeck CODE  while CODE being in on of the above formats
-           similarly /exportdeck will get the M version Code of you currently selected deck
-           Example of deck import command in the Game Skylords Reborn:
+       How to import/export decks in the game:
+       simply type /importdeck CODE  while CODE being in on of the above formats
+       similarly /exportdeck will get the M version Code of you currently selected deck
+       Example of deck import command in the Game Skylords Reborn:
 
-           /importdeck [253,254,255,256,287,288,289,290,301,302,303,304,305,316,344,345,346,354,355,356]
+       /importdeck [253,254,255,256,287,288,289,290,301,302,303,304,305,316,344,345,346,354,355,356]
 
-   */
+*/
 
-            public int cardId { get; set; }
-            public string cardName { get; set; }
-            public string rarity { get; set; }
-            public string expansion { get; set; }
-            public string promo { get; set; }
-            public string obtainable { get; set; }
-            public int fireOrbs { get; set; }
-            public int frostOrbs { get; set; }
-            public int natureOrbs { get; set; }
-            public int shadowOrbs { get; set; }
-            public int fireShadowOrbs { get; set; }
-            public int fireFrostOrbs { get; set; }
-            public int natureFrostOrbs { get; set; }
-            public int shadownNatureOrbs { get; set; }
-            public int shadowFrostOrbs { get; set; }
-            public int neutralOrbs { get; set; }
-            public string affinity { get; set; }
-            public string cardType { get; set; }
-        }
+        public int cardId { get; set; }
+        public string cardName { get; set; }
+        public string rarity { get; set; }
+        public string expansion { get; set; }
+        public string promo { get; set; }
+        public string obtainable { get; set; }
+        public int fireOrbs { get; set; }
+        public int frostOrbs { get; set; }
+        public int natureOrbs { get; set; }
+        public int shadowOrbs { get; set; }
+        public int fireShadowOrbs { get; set; }
+        public int fireFrostOrbs { get; set; }
+        public int natureFrostOrbs { get; set; }
+        public int shadownNatureOrbs { get; set; }
+        public int shadowFrostOrbs { get; set; }
+        public int neutralOrbs { get; set; }
+        public string affinity { get; set; }
+        public string cardType { get; set; }
+    }
 
     public class DefenseType
     {
@@ -306,14 +307,7 @@ namespace SkylordsRebornAPI.Cardbase
         public string _minus1 { get; set; }
     }
 
-    //public enum Edition
-    //{
-    //    Twilight = 1,
-    //    Renegade = 2,
-    //    LostSouls = 4,
-    //    Amii = 8
-    //}
-
+    // 0 Twilight, 1 Renegade, 2 Lost Souls, 3 Amii, 4 Rebirth
     public class Edition
     {
         [JsonProperty("0")]
@@ -606,6 +600,27 @@ namespace SkylordsRebornAPI.Cardbase
 
     public static class Utils
     {
+        private static readonly string[] CHARSETVERSION_M = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-".Split("");
+        private static readonly int CHUNKLENGTH_VERSION_M = 2;
+
+        public static string EncodeCardVersionM(int officialCardId)
+        {
+            string cardCode = "";
+
+            while (officialCardId > 0)
+            {
+                cardCode = CHARSETVERSION_M[officialCardId % CHARSETVERSION_M.Length] + cardCode;
+                officialCardId = (int)Math.Floor((double)officialCardId / CHARSETVERSION_M.Length);
+            }
+
+            while (cardCode.Length < CHUNKLENGTH_VERSION_M)
+            {
+                cardCode = CHARSETVERSION_M[0] + cardCode;
+            }
+
+            return cardCode;
+        }
+
         public static SMJCard CopySkylordsRebornCard(SkylordsRebornCard SLRCard)
         {
             SMJCard smjCard = new SMJCard();
@@ -628,7 +643,7 @@ namespace SkylordsRebornAPI.Cardbase
             smjCard.affinity = int.Parse(SLRCard.affinity);
             smjCard.type = int.Parse(SLRCard.cardType);
 
-             return smjCard;
+            return smjCard;
         }
 
         public static SkylordsRebornCard CopySMJCard(SMJCard SMJCard)

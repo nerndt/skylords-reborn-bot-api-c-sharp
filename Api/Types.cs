@@ -2918,9 +2918,9 @@ namespace Api
         [JsonPropertyName("ability_world_objects")]
         public required AbilityWorldObject[] AbilityWorldObjects { get; set; }
         [JsonPropertyName("squads")]
-        public required Squad[] Squads { get; set; }
+        public required Squad[] Squads { get; set; } // Groups of units
         [JsonPropertyName("figures")]
-        public required Figure[] Figures { get; set; }
+        public required Figure[] Figures { get; set; } // Units
         [JsonPropertyName("buildings")]
         public required Building[] Buildings { get; set; }
         [JsonPropertyName("barrier_sets")]

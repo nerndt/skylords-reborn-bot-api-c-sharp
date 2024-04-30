@@ -5,7 +5,7 @@ using System.Diagnostics;
 namespace Bots
 {
     //    /AI: add CsTestAI TaintedFlora 4
-    public class TryEverything : IAspWrapperImpl
+    public class TryEverythingBot : IAspWrapperImpl
     {
         string IAspWrapperImpl.Name => "CsTestAI";
 

@@ -5,7 +5,7 @@ VisualStudioVersion = 17.7.34031.279
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Api", "Api\Api.csproj", "{3FC0176C-B355-42C9-91B0-AD8AC5195D0F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Example", "Example\Example.csproj", "{13490440-635B-477C-9353-38E03D732910}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Bot", "Example\Bot.csproj", "{13490440-635B-477C-9353-38E03D732910}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "F#-api-and-example", "F#-api-and-example\F#-api-and-example.fsproj", "{39783EE2-4C23-4922-86EF-8EF0CCAED674}"
 EndProject

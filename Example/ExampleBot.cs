@@ -5,7 +5,7 @@ namespace Bots
     // /AI: add CsExampleAI Tutorial 4
     // Once the Elyon - spectator map is chosen in Sparring Grounds, write a command in the message such as:
     // Which means call the AI script and add the bot called XanderAI, the deck Tutorial and the slot 4 (starting position on map for player)
-    public class Example : IAspWrapperImpl
+    public class ExampleBot : IAspWrapperImpl
     {
         string IAspWrapperImpl.Name => "CsExampleAI";
 

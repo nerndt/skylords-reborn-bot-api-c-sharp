@@ -403,7 +403,6 @@ namespace Bots
                 {
                     botState.oponents.Add(player.Entity.Id);
                 }
-                break;
             }
             foreach (var s in entities.PowerSlots)
             {

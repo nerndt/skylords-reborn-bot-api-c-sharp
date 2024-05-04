@@ -116,7 +116,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.0.2";
+        string botVersion = "0.0.0.3";
 
         int unitsNeededBeforeAttack = 1;
         int maxAttackUnits = 4;
@@ -132,18 +132,20 @@ namespace Bots
         List<TokenSlot> myOrbs = new List<TokenSlot>(); // Array.FindAll(state.Entities.TokenSlots, x => x.Entity.PlayerEntityId == botState.myId).ToList();
         List<PowerSlot> myWells = new List<PowerSlot>(); // Array.FindAll(state.Entities.PowerSlots, x => x.Entity.PlayerEntityId == botState.myId).ToList();
         List<BarrierSet> myWalls = new List<BarrierSet>(); // Array.FindAll(state.Entities.BarrierSets, x => x.Entity.PlayerEntityId == botState.myId).ToList();
+        List<BarrierModule> myWallModules = new List<BarrierModule>(); // Array.FindAll(state.Entities.BarrierSets, x => x.Entity.PlayerEntityId == botState.myId).ToList();
         List<Squad> mySquads = new List<Squad>(); // Array.FindAll(state.Entities.Squads, x => x.Entity.Id == botState.myId).ToList();
         List<EntityId> myUnits = new List<EntityId>();
 
         List<TokenSlot> enemyOrbs = new List<TokenSlot>(); // Array.FindAll(state.Entities.TokenSlots, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
         List<PowerSlot> enemyWells = new List<PowerSlot>(); // Array.FindAll(state.Entities.PowerSlots, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
-        List<BarrierModule> enemyWalls = new List<BarrierModule>(); // Array.FindAll(state.Entities.BarrierSets, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
-        List<BarrierSet> enemyBarriers = new List<BarrierSet>(); // Array.FindAll(state.Entities.BarrierModules, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
+        List<BarrierModule> enemyWallModules = new List<BarrierModule>(); // Array.FindAll(state.Entities.BarrierSets, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
+        List<BarrierSet> enemyWalls = new List<BarrierSet>(); // Array.FindAll(state.Entities.BarrierModules, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
         List<Squad> enemySquads = new List<Squad>(); // Array.FindAll(state.Entities.Squads, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
 
         List<TokenSlot> emptyOrbs = new List<TokenSlot>(); // Array.FindAll(state.Entities.TokenSlots, x => x.Entity.PlayerEntityId == null).ToList();
         List<PowerSlot> emptyWells = new List<PowerSlot>(); // Array.FindAll(state.Entities.PowerSlots, x => x.Entity.PlayerEntityId == null).ToList();
         List<BarrierSet> emptyWalls = new List<BarrierSet>(); // Array.FindAll(state.Entities.BarrierSets, x => x.Entity.PlayerEntityId == null).ToList();
+        List<BarrierModule> emptyWallModules = new List<BarrierModule>(); // Array.FindAll(state.Entities.BarrierSets, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
 
         DeckOfficialCardIds? myCurrentDeckOfficialCardIds = null; // myDeckOfficialCardIds.FirstOrDefault(d => d.Name == botState.selectedDeck.Name) ?? myDeckOfficialCardIds[0];
         List<int>? archerCardPositions = null; // GetArcherCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Cards in Deck are archers
@@ -153,7 +155,7 @@ namespace Bots
 
         float nearestBarrierDistance = float.MaxValue; // Is there a wall by my first orb?
         float buildWallCost = 50f; // NGE05012024!!!!!! How can I get the cost to build the wall?
-        List<bool> myWallGates = new List<bool>(); // false means up, true means down
+        List<bool> myWallGatesOpen = new List<bool>(); // false means up, true means down
 
         EntityId closestWall = new EntityId(0u);
         float closestWallDistanceSq = 0f;
@@ -1224,28 +1226,45 @@ namespace Bots
                     var myPower = player.Power;
 
                     BarrierSet[] myBarriers = Array.FindAll(state.Entities.BarrierSets, x => x.Entity.PlayerEntityId == botState.myId);
-                    BarrierModule[] myWalls0 = Array.FindAll(state.Entities.BarrierModules, x => x.Entity.PlayerEntityId == botState.myId);
+                    BarrierModule[] myWallsModules0 = Array.FindAll(state.Entities.BarrierModules, x => x.Entity.PlayerEntityId == botState.myId);
                     myWalls = myBarriers != null ? myBarriers.ToList() : new List<BarrierSet>();
+                    myWallModules = myWallsModules0 != null ? myWallsModules0.ToList() : new List<BarrierModule>();
                     if (buildNearbyWallAtStart == true && closestWall.V != 0 && myWalls.Count() == 0)
                     {
                         if (closestWallDistanceSq < 200 && myPower > buildWallCost)
                         {
                             Command[] cmd = BuildWall(myPower, out float powerRemaining, closestWall, false, currentTick.V);
-                            Console.WriteLine("WallId:{0} built at:{1},{2}", closestWall, (int)closestWallPosition.X, (int)closestWallPosition.Y);
+                            // Console.WriteLine("WallId:{0} built at:{1},{2}", closestWall, (int)closestWallPosition.X, (int)closestWallPosition.Y);
                             return cmd.ToArray();
                         }
                     }
-                    if (myWalls.Count() > 0)
+                    if (buildNearbyWallAtStart == true && myWalls.Count() > 0 && myWallModules.Count() > 0) // Open Wall gate to let out squads
                     {
-                        while (myWallGates.Count() < myWalls.Count())
+                        while (myWallGatesOpen.Count() < myWalls.Count())
                         {
-                            myWallGates.Add(false);
+                            myWallGatesOpen.Add(false);
                         }
-                        if (myWallGates[0] == false)
+                        if (myWallGatesOpen[0] == false)
                         {
-                            bool toggle = myWallGates[0];
-                            Command[] cmd = ToggleWallGate(myWalls[0].Entity.Id, ref toggle, currentTick.V);
-                            myWallGates[0] = toggle;
+                            List<Command> cmd = new List<Command>();
+                            bool toggle = myWallGatesOpen[0];
+                            bool moduleToggle = toggle;
+                            foreach (var module in myWallModules)
+                            {
+                                if (module.Set.V == myWalls[0].Entity.Id.V) // Part of the same Barrier
+                                {
+                                    var gateAspect = module.Entity.Aspects.FirstOrDefault(g => g.BarrierGate != null) ?? null;
+                                    if (gateAspect != null)
+                                    {
+                                        moduleToggle = false;
+                                        Command[] cmdModule = ToggleWallGate(module.Entity.Id, ref moduleToggle, currentTick.V);
+                                        cmd.AddRange(cmdModule);
+                                        myWallGatesOpen[0] = moduleToggle;
+                                        Console.WriteLine("WallIModuleID:{0} gate open:{1}", module.Entity.Id, myWallGatesOpen[0]);
+                                        // break;
+                                    }
+                                }
+                            }
                             return cmd.ToArray();
                         }
                         buildNearbyWallAtStart = false; // This task is completed
@@ -1274,8 +1293,8 @@ namespace Bots
                         enemyWells = enemyWells0 != null ? enemyWells0.ToList() : new List<PowerSlot>();
                         BarrierSet[] enemyBarriers0 = Array.FindAll(state.Entities.BarrierSets, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId)));
                         BarrierModule[] enemyWalls0 = Array.FindAll(state.Entities.BarrierModules, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId)));
-                        enemyBarriers = enemyBarriers0 != null ? enemyBarriers0.ToList() : new List<BarrierSet>();
-                        enemyWalls = enemyWalls0 != null ? enemyWalls0.ToList() : new List<BarrierModule>();
+                        enemyWalls = enemyBarriers0 != null ? enemyBarriers0.ToList() : new List<BarrierSet>();
+                        enemyWallModules = enemyWalls0 != null ? enemyWalls0.ToList() : new List<BarrierModule>();
                         // Squad[] enemySquads0 = Array.FindAll(state.Entities.Squads, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId)));
                         // enemySquads = enemySquads0 != null ? enemySquads0.ToList() : new List<Squad>();
 
@@ -1309,49 +1328,6 @@ namespace Bots
                                 enemySquads.Add(s);
                             }
                         }
-
-                        /*
-                        float barrierDistanceToBuild = 10;
-                        EntityId nearestWallId = new EntityId(0u);
-                        Entity? nearestWall = null;
-                        if (botState.isGameStart == true)
-                        {
-                            if (myWalls.Count() == 0 || nearestBarrierDistance == float.MaxValue)
-                            {
-                                foreach (var w in emptyWalls)
-                                {
-                                    float dist = DistanceSquared(PositionExtension.To2D(myOrbs0[0].Entity.Position), w.Entity.Position);
-                                    if (dist < nearestBarrierDistance)
-                                    {
-                                        nearestBarrierDistance = dist;
-                                        nearestWall = w.Entity;
-                                        nearestWallId = w.Entity.Id;
-                                    }
-                                }
-                                if (nearestBarrierDistance < 200 && myPower > buildWallCost)
-                                {
-                                    Command[] cmd = BuildWall(myPower, out float powerRemaining, nearestWallId, true);
-                                    Console.WriteLine("WallId:{0} built at:{1},{2}", nearestWall, (int)nearestWall.Position.X, (int)nearestWall.Position.Y);
-                                    return cmd.ToArray();
-                                }
-                            }
-                            if (myWalls.Count() > 0 && myWallGates[0] == false) // Open the Gate!
-                            {
-                                for (int b = 0; b < myWalls.Count(); b++) 
-                                {
-                                    if (myWallGates.Count() == b)
-                                    {
-                                        myWallGates.Add(false);
-                                    }
-                                }
-                                if (myWallGates[0] == false)
-                                {
-                                    Command[] cmd = ToggleWallGate(myWalls[0].Entity.Id);
-                                    return cmd.ToArray();
-                                }
-                            }
-                        }
-                        */
 
                         if (botState.isGameStart == true || currentTick.V % defaultTickUpdateRate == 0) // Try to do stuff every 0.5 seconds instead of every 1/10 second
                         {
@@ -1407,25 +1383,144 @@ namespace Bots
                                 //    }
                                 //}
                                 Position2D myArmyPos = botState.myStart;
-                                if (myWalls.Count() > 0 && mySquads.Count() == 0)
+                                #region Code to put a squad outside of a barrier near an orb
+                                if (myWalls.Count() > 0 && mySquads.Count() == 0) // && myWallGatesOpen[0] == false)
                                 {
                                     Position2D wallPos = PositionExtension.To2D(myWalls[0].Entity.Position);
                                     Position2D pos = new Position2D { X = wallPos.X - (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y - (wallPos.Y - botState.myStart.Y) / 2 };
                                     myArmyPos = pos;
-                                    Console.WriteLine("myArmyPos:{0},{1}", (int)myArmyPos.X, (int)myArmyPos.Y);
+                                    //Console.WriteLine("myArmyPos:{0},{1}", (int)myArmyPos.X, (int)myArmyPos.Y);
                                 }
-                                else if (myWalls.Count() > 0 && mySquads.Count() > 0) // Cannot build squad outside of wall unless another squad is inside wall
+                                else if (myWalls.Count() > 0 && mySquads.Count() > 0) // && myWallGatesOpen[0] == false) // Cannot build squad outside of wall unless another squad is inside wall
                                 {
-                                    // Get distance between Orb and Wall
+                                    // Turn all positions to int
                                     Position2D wallPos = PositionExtension.To2D(myWalls[0].Entity.Position);
-                                    Position2D pos = new Position2D { X = wallPos.X + (wallPos.X - botState.myStart.X)/2, Y = wallPos.Y + (wallPos.Y - botState.myStart.Y)/2 };
-                                    myArmyPos = pos;
-                                    Console.WriteLine("myArmyPos:{0},{1}", (int)myArmyPos.X, (int)myArmyPos.Y);
+                                    Position2D wallPosInt = new Position2D { X = (int)wallPos.X, Y = (int)wallPos.Y };
+                                    Position2D orbPos = PositionExtension.To2D(myOrbs[0].Entity.Position);
+                                    Position2D orbPosInt = new Position2D { X = (int)orbPos.X, Y = (int)orbPos.Y };
+                                    bool firstSquadInsideWall = false;
+                                    Position2D mySqadPos = PositionExtension.To2D(myArmy[0].Entity.Position);
+                                    Position2D mySqadPosInt = new Position2D { X = (int)mySqadPos.X, Y = (int)mySqadPos.Y };
+                                    // Squad is NOT between orb and wall
+                                    if (mySqadPosInt != wallPos && mySqadPosInt != orbPosInt &&
+                                        mySqadPosInt.X >= Math.Min(orbPosInt.X, wallPosInt.X) && mySqadPosInt.X <= Math.Max(orbPosInt.X, wallPosInt.X) &&
+                                        mySqadPosInt.Y >= Math.Min(orbPosInt.Y, wallPosInt.Y) && mySqadPosInt.Y <= Math.Max(orbPosInt.Y, wallPosInt.Y))
+                                    {
+                                        firstSquadInsideWall = true;
+                                    }
+
+                                    if (firstSquadInsideWall == true)
+                                    {
+                                        // Get distance between Orb and Wall
+                                        Position2D pos = new Position2D { X = wallPos.X + (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y + (wallPos.Y - botState.myStart.Y) / 2 };
+                                        myArmyPos = pos;
+                                    }
+                                    else
+                                    {
+                                        myArmyPos = PositionExtension.To2D(myArmy[0].Entity.Position);
+                                    }
+                                    //Console.WriteLine("myArmyPos:{0},{1}", (int)myArmyPos.X, (int)myArmyPos.Y);
                                 }
                                 else if (myArmy.Count > 0)
                                 {
                                     myArmyPos = PositionExtension.To2D(myArmy[0].Entity.Position);
                                 }
+                                #endregion Code to put a squad outside of a barrier near an orb
+
+                                if (myArmy != null && myArmy.Count() > 0 && myWalls.Count() > 0)
+                                {
+                                    if (myWallGatesOpen.Count() > 0 && myWallGatesOpen[0] == true) // If gate is open and all squads are outside gate, close it
+                                    {
+                                        // Turn all positions to int
+                                        Position2D wallPos = PositionExtension.To2D(myWalls[0].Entity.Position);
+                                        Position2D wallPosInt = new Position2D { X = (int)wallPos.X, Y =  (int)wallPos.Y };
+                                        Position2D orbPos = PositionExtension.To2D(myOrbs[0].Entity.Position);
+                                        Position2D orbPosInt = new Position2D { X = (int)orbPos.X, Y = (int)orbPos.Y };
+                                        Position2D mySqadPos = new Position2D { X = 0, Y = 0 };
+                                        Position2D mySqadPosInt = new Position2D { X = 0, Y = 0 };
+                                        //int deltaX = (int)Math.Abs(wallPos.X - myOrbs[0].Entity.Position.X);
+                                        //int deltaY = (int)Math.Abs(wallPos.Y - myOrbs[0].Entity.Position.Y);
+
+                                        bool closeGate = true;
+                                        foreach (var squad in myArmy)
+                                        {                                            
+                                            mySqadPos = PositionExtension.To2D(squad.Entity.Position);
+                                            mySqadPosInt = new Position2D { X = (int)mySqadPos.X, Y = (int)mySqadPos.Y };
+                                            // Squad is NOT between orb and wall
+                                            if (mySqadPosInt != wallPos && mySqadPosInt != orbPosInt &&
+                                                mySqadPosInt.X >= Math.Min(orbPosInt.X, wallPosInt.X) && mySqadPosInt.X <= Math.Max(orbPosInt.X, wallPosInt.X) &&
+                                                mySqadPosInt.Y >= Math.Min(orbPosInt.Y, wallPosInt.Y) && mySqadPosInt.Y <= Math.Max(orbPosInt.Y, wallPosInt.Y))
+                                            {
+                                                closeGate = false;
+                                                break;
+                                            }
+                                        }
+                                        if (closeGate == true)
+                                        {
+                                            foreach (var module in myWallModules)
+                                            {
+                                                if (module.Set.V == myWalls[0].Entity.Id.V) // Part of the same Barrier
+                                                {
+                                                    var gateAspect = module.Entity.Aspects.FirstOrDefault(g => g.BarrierGate != null) ?? null;
+                                                    if (gateAspect != null)
+                                                    {
+                                                        bool moduleToggle = myWallGatesOpen[0];
+                                                        Command[] cmdModule = ToggleWallGate(module.Entity.Id, ref moduleToggle, currentTick.V);
+                                                        commands.AddRange(cmdModule.ToArray());
+                                                        myWallGatesOpen[0] = moduleToggle;
+                                                        Console.WriteLine("All squads outside wall, so close gate!");
+                                                        // break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else if (myWallGatesOpen.Count() > 0 && myWallGatesOpen[0] == false) // If gate is closed and any squads are inside gate, open it
+                                    {
+                                        Position2D wallPos = PositionExtension.To2D(myWalls[0].Entity.Position);
+                                        Position2D wallPosInt = new Position2D { X = (int)wallPos.X, Y = (int)wallPos.Y };
+                                        Position2D orbPos = PositionExtension.To2D(myOrbs[0].Entity.Position);
+                                        Position2D orbPosInt = new Position2D { X = (int)myOrbs[0].Entity.Position.X, Y = (int)myOrbs[0].Entity.Position.Y };
+                                        Position2D mySqadPos = new Position2D { X = 0, Y = 0 };
+                                        Position2D mySqadPosInt = new Position2D { X = 0, Y = 0 };
+
+                                        bool openGate = false;
+                                        foreach (var squad in myArmy)
+                                        {
+                                            mySqadPos = PositionExtension.To2D(squad.Entity.Position);
+                                            mySqadPosInt = new Position2D { X = (int)mySqadPos.X, Y = (int)mySqadPos.Y };
+                                            // Squad is between orb and wall
+                                            if (mySqadPosInt != wallPos && mySqadPosInt != orbPosInt &&
+                                                mySqadPosInt.X >= Math.Min(orbPosInt.X, wallPosInt.X) && mySqadPosInt.X <= Math.Max(orbPosInt.X, wallPosInt.X) &&
+                                                mySqadPosInt.Y >= Math.Min(orbPosInt.Y, wallPosInt.Y) && mySqadPosInt.Y <= Math.Max(orbPosInt.Y, wallPosInt.Y))
+                                            {
+                                                openGate = true;
+                                                Console.WriteLine("SquadId{0} still inside, so open gate!", squad.Entity.Id);
+                                                break;
+                                            }
+                                        }
+                                        if (openGate == true)
+                                        {
+                                            foreach (var module in myWallModules)
+                                            {
+                                                if (module.Set.V == myWalls[0].Entity.Id.V) // Part of the same Barrier
+                                                {
+                                                    var gateAspect = module.Entity.Aspects.FirstOrDefault(g => g.BarrierGate != null) ?? null;
+                                                    if (gateAspect != null)
+                                                    {
+                                                        bool moduleToggle = myWallGatesOpen[0];
+                                                        Command[] cmdModule = ToggleWallGate(module.Entity.Id, ref moduleToggle, currentTick.V);
+                                                        commands.AddRange(cmdModule.ToArray());
+                                                        myWallGatesOpen[0] = moduleToggle;
+                                                        // break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+
                                 Command? spawn = null;
                                 if (myArmy != null && myArmy.Count() < defaultAttackSquads)
                                 {
@@ -1499,7 +1594,7 @@ namespace Bots
                                 }
                                 float nearestOpponentBarrierDistance = float.MaxValue;
                                 Position nearestOpponentBarrierPosition;
-                                foreach (var s in enemyWalls) // if squad is near me attack it
+                                foreach (var s in enemyWallModules) // if squad is near me attack it
                                 {
                                     nearestOpponentBarrierPosition = s.Entity.Position;
                                     //// Find the BarrierModule that has the same EntityId as the enemyWalls.EntityId
@@ -1629,9 +1724,9 @@ namespace Bots
                                     {
                                         target = enemySquads[0].Entity.Id;
                                     }
-                                    else if (enemyWalls.Count() > 0)
+                                    else if (enemyWallModules.Count() > 0)
                                     {
-                                        target = enemyWalls[0].Entity.Id;
+                                        target = enemyWallModules[0].Entity.Id;
                                     }
                                 }
                                 Command? attack = null;

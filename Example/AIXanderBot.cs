@@ -139,7 +139,7 @@ namespace Bots
         int unitsNeededBeforeAttack = 1;
         int maxAttackUnits = 2;
         int defaultSquadSize = 2;
-        int defaultTickUpdateRate = 5;
+        int defaultTickUpdateRate = 1;
         int defaultAttackSquads = 4; // For now do not build more than X attack units
         int defaultDefendSquads = 2; // For now do not build more than X defend units
         int healOrbs = 3;
@@ -1413,7 +1413,7 @@ namespace Bots
                             {
                                 Console.WriteLine("CommandProduceSquadOnBarrier");
                             }
-                            botState.canPlayCardAt = currentTick.V + 20; // Delay next command by 1 second (10 ticks per second)
+                            botState.canPlayCardAt = currentTick.V + 10; // Delay next command by 1 second (10 ticks per second)
                             break;
                         }
 

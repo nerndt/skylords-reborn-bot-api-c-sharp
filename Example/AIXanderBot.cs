@@ -130,7 +130,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.0.5";
+        string botVersion = "0.0.0.6";
 
         string previousTargetMessage = string.Empty;
 
@@ -960,27 +960,6 @@ namespace Bots
             return null;
         }
 
-
-        private Command? SpawnArcherOnBarrierOld(List<Squad> myArmy, float myPower, Position2D pos, EntityId squadId, int unitPower, uint tick)
-        {
-            if (archerCardPositions != null)
-            {
-                byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
-                int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPosition]; // Starting unit for AI
-                if (unitOfficialCardId != 0) // Not a card
-                {
-                    SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                    if (card != null)
-                    {
-                        unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
-
-                        return SpawnUnitOnBarrier(myPower, pos, cardPosition, squadId, unitPower, tick, ref myPower); // Spawn unit in squad next to other units
-                    }
-                }
-            }
-            return null;
-        }
-
         /// <summary>
         /// The Tick event happesn every 1/10 second and updates all entities (units, buildings, spells)
         /// </summary>
@@ -1621,32 +1600,16 @@ namespace Bots
 
                                     if (archerOnWallAtStartBuilt == false && myPower > unitPower)
                                     {
-                                        Position2D wallPos = myWalls[0].Entity.Position.To2D();
-                                        foreach (var b in entities.BarrierModules)
+                                        Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPower, ref myPower);
+                                        if (commandSpawnArcherOnWall != null)
                                         {
-                                            if (b.Entity.PlayerEntityId == botState.myId)
-                                            {
-                                                Position2D pos = new Position2D { X = wallPos.X - (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y - (wallPos.Y - botState.myStart.Y) / 2 };
+                                            buildArcherOnWallAtStart = false;
+                                            archerOnWallAtStartBuilt = true;
 
-                                                double distance = Math.Sqrt(DistanceSquared(wallPos, b.Entity.Position));
-                                                string message = string.Format("distance:{0:0.0}", distance);
-                                                ConsoleWriteLine(true, message);
-
-                                                if (b.FreeSlots >= 6 &&
-                                                    myPower >= unitPower && botState.canPlayCardAt < currentTick.V &&
-                                                    distance < 15)
-                                                {
-                                                    spawnOnBarrier = SpawnArcherOnBarrier(myPower, b.Entity.Position.To2D(), b.Entity.Id, currentTick.V, ref myPower); // wallPos
-                                                    if (spawnOnBarrier != null)
-                                                    {
-                                                        buildArcherOnWallAtStart = false; 
-                                                        commands.Add(spawnOnBarrier);
-                                                        return commands.ToArray();
-                                                    }
-                                                }
-                                            }
+                                            commands.Add(commandSpawnArcherOnWall);
+                                            return commands.ToArray();
                                         }
-                                    }
+                                     }
                                     else if (myPower > unitPower) // Make an archer squad at starting orb location for now
                                     {
                                         Position2D wallPos = PositionExtension.To2D(myWalls[0].Entity.Position);
@@ -1682,7 +1645,6 @@ namespace Bots
                                             cmd.AddRange(cmdModule);
                                             // Console.WriteLine("WallIModuleID:{0} gate open:{1}", module.Entity.Id, true);
                                         }
-                                        // break;
                                     }
                                 }
                                 if (cmd.Count() > 0)
@@ -1847,7 +1809,6 @@ namespace Bots
                                                             Command[] cmdModule = ToggleWallGate(module.Entity.Id, gateAspect.BarrierGate.Open, currentTick.V);
                                                             commands.AddRange(cmdModule.ToArray());
                                                         }
-                                                        // break;
                                                     }
                                                 }
                                             }
@@ -1865,8 +1826,6 @@ namespace Bots
                                         Position2D orbPosInt = new Position2D { X = (int)orbPos.X, Y = (int)orbPos.Y };
                                         Position2D mySqadPos = new Position2D { X = 0, Y = 0 };
                                         Position2D mySqadPosInt = new Position2D { X = 0, Y = 0 };
-                                        //int deltaX = (int)Math.Abs(wallPos.X - myOrbs[0].Entity.Position.X);
-                                        //int deltaY = (int)Math.Abs(wallPos.Y - myOrbs[0].Entity.Position.Y);
 
                                         bool closeGate = true;
                                         foreach (var squad in myArmy)
@@ -1893,8 +1852,6 @@ namespace Bots
                                                     {
                                                         Command[] cmdModule = ToggleWallGate(module.Entity.Id, gateAspect.BarrierGate.Open, currentTick.V);
                                                         commands.AddRange(cmdModule.ToArray());
-                                                        // Console.WriteLine("All squads outside wall, so close gate!");
-                                                        // break;
                                                     }
                                                 }
                                             }
@@ -1905,7 +1862,6 @@ namespace Bots
                                 }
 
                                 Command? spawn = null;
-                                Command? spawnOnBarrier = null;
                                 if (myArmy != null && myArmy.Count() < defaultAttackSquads)
                                 {
                                     spawn = SpawnUnit(myArmy, myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);
@@ -1921,55 +1877,15 @@ namespace Bots
                                         {
                                             byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
                                             var archerSquad = myArmy.Where(a => a.CardId == currentDeck.Cards[cardPosition]).ToList(); // See if I have any archers
-                                            //if (archerSquad != null && archerSquad.Count() > 0) // Put them on the wall
-                                            {
-                                                foreach (var b in entities.BarrierModules)
-                                                {
-                                                    if (b.Entity.PlayerEntityId == botState.myId)
-                                                    {
-                                                        Position2D pos = new Position2D { X = wallPos.X - (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y - (wallPos.Y - botState.myStart.Y) / 2 };
 
-                                                        double distance = Math.Sqrt(DistanceSquared(wallPos, b.Entity.Position));
-                                                        string message = string.Format("distance:{0:0.0}", distance);
-                                                        ConsoleWriteLine(true, message);
-
-                                                        if (b.FreeSlots >= 6 &&
-                                                            myPower >= unitPower && botState.canPlayCardAt < currentTick.V &&
-                                                            distance < 15)
-                                                        {
-                                                            spawnOnBarrier = SpawnArcherOnBarrier(myPower, b.Entity.Position.To2D(), b.Entity.Id, currentTick.V, ref myPower); // wallPos
-                                                            if (spawnOnBarrier != null)
-                                                            {
-                                                                buildArcherOnWallAtStart = false;
-                                                                commands.Add(spawnOnBarrier);
-                                                                return commands.ToArray();
-                                                            }
-                                                        }
-                                                    }
-                                                }
-
-                                                //spawnOnBarrier = SpawnArcherOnBarrier(myPower, wallPos, archerSquad[0].Entity.Id, unitPower, currentTick.V); // wallPos
-                                                //if (spawnOnBarrier != null)
-                                                //{
-                                                //    commands.Add(spawnOnBarrier);
-                                                //    return commands.ToArray();
-                                                //}
+                                            Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPower, ref myPower);
+                                            if (commandSpawnArcherOnWall != null)
+                                            { 
+                                                commands.Add(commandSpawnArcherOnWall);
+                                                return commands.ToArray();
                                             }
-                                            //else // Make an archer squad at starting orb location for now
-                                            //{
-                                            //    spawn = SpawnUnit(myArmy, myPower, botState.myStart, cardPosition, unitPower, currentTick.V); // Create Archer
-                                            //    if (spawn != null)
-                                            //    {
-                                            //        commands.Add(spawn);
-                                            //        return commands.ToArray();
-                                            //    }
-                                            //}
                                         }
                                     }
-                                    //else
-                                    //{
-                                    //    spawn = SpawnArcher(myArmy, myPower, myArmyPos, unitPower, currentTick.V);
-                                    //}
                                 }
                                 var target = new EntityId(0u);
                                 EntityId previousTarget = new EntityId(0u);
@@ -2289,7 +2205,6 @@ namespace Bots
                                 spawnOnBarrier = SpawnArcherOnBarrier(myPower, b.Entity.Position.To2D(), b.Entity.Id, currentTick, ref myPower);
                                 if (spawnOnBarrier != null)
                                 {
-                                    buildArcherOnWallAtStart = false;
                                     return spawnOnBarrier;
                                 }
                             }

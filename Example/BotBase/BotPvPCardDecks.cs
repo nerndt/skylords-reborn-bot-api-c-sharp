@@ -5,7 +5,7 @@ namespace Bots
     public class DeckOfficialCardIds
     {
         public string Name; // Name of the Deck
-        public int[] Ids; // List of 20 Ofiicial Card Ids for this deck
+        public int[] Ids; // List of 20 Official Card Ids for this deck
     }
 
     public static class PvPCardDecks

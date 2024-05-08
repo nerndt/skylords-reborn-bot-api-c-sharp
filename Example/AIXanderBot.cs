@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.IO;
 using SkylordsRebornAPI.Auction;
 using Microsoft.Extensions.FileSystemGlobbing;
+using SkylordsRebornAPI.Cardbase.Cards;
 
 namespace Bots
 {
@@ -130,7 +131,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.0.6";
+        string botVersion = "0.0.0.7";
 
         string previousTargetMessage = string.Empty;
 
@@ -145,8 +146,12 @@ namespace Bots
         int healOrbs = 3;
         bool buildNearbyWallAtStart = true;
         bool buildArcherOnWallAtStart = true;
+        bool buildArcherOnWallAtStartWasTrue = false; 
         bool archerOnWallAtStartBuilt = false;
         EntityId archerOnWallAtStartBuiltId = new EntityId(0u);
+
+        bool buildNearbyWellAtStart = true;
+        bool buildNearbyOrbAtStart = true;
 
         List<Strategy> strategyList = new List<Strategy>(); // This dictates what to build when in the process
 
@@ -177,6 +182,8 @@ namespace Bots
         List<BarrierModule> emptyWallModules = new List<BarrierModule>(); // Array.FindAll(state.Entities.BarrierSets, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
 
         DeckOfficialCardIds? myCurrentDeckOfficialCardIds = null; // myDeckOfficialCardIds.FirstOrDefault(d => d.Name == botState.selectedDeck.Name) ?? myDeckOfficialCardIds[0];
+        List<SMJCard?> myCurrentSMJCards = new List<SMJCard>(); // List of all card info for current chosen deck
+        
         List<int>? archerCardPositions = null; // GetArcherCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Cards in Deck are archers
         List<int>? towerCardPositions = null; // GetTowerCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1);
         List<int>? spellCardPositions = null; // GetSpellCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1);
@@ -311,12 +318,250 @@ namespace Bots
 
         #region Info to track
 
-        SMJCard[]? cardsSMJ; // Instances.CardService.GetSMJCardList();
+        private SMJCard[]? cardsSMJ; // Instances.CardService.GetSMJCardList();
 
+        private List<CreateOrbColor> orbColorBuildOrder = new List<CreateOrbColor>(); // Determine orb build order based on current deck at PrepareForBattle
         private Dictionary<EntityId, Orb> orbs = new Dictionary<EntityId, Orb>();
         private Dictionary<EntityId, Well> wells = new Dictionary<EntityId, Well>();
 
         #endregion Info to track
+        public List<OrbColor> GetOrbColorBuildOrder(SMJCard? card)
+        {
+            List<OrbColor> orbColorTierOrder = new List<OrbColor>();
+            if (card != null)
+            {
+                if (card.type == 0 && card.orbsTotal == 1) // // 0 - Unit, 1 - Building, 2 - Spell
+                {
+                    if (card.orbsFire == 1)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Fire);
+                    }
+                    else if (card.orbsShadow == 1)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Shadow);
+                    }
+                    else if (card.orbsNature == 1)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Nature);
+                    }
+                    else if (card.orbsFrost == 1)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Frost);
+                    }
+                    else if (card.orbsNeutral == 1)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Nature); // ??????
+                    }
+                }
+                else if (card.orbsTotal == 2 && orbColorTierOrder.Count() < 2) 
+                {
+                    int orbsFire = orbColorTierOrder.Where(o => o == OrbColor.Fire).Count();
+                    int orbsShadow = orbColorTierOrder.Where(o => o == OrbColor.Shadow).Count();
+                    int orbsNature = orbColorTierOrder.Where(o => o == OrbColor.Nature).Count();
+                    int orbsFrost = orbColorTierOrder.Where(o => o == OrbColor.Frost).Count();
+                    if (card.orbsFire >= 1 && card.orbsFire < orbsFire)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Fire);
+                    }
+                    else if (card.orbsShadow >= 1 && card.orbsShadow < orbsShadow)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Shadow);
+                    }
+                    else if (card.orbsNature >= 1 && card.orbsNature < orbsNature)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Nature);
+                    }
+                    else if (card.orbsFrost >= 1 && card.orbsFrost < orbsFrost)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Frost);
+                    }
+                    else if (card.orbsNeutral >= 1)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Nature); // ??????
+                    }
+                }
+                else if (card.orbsTotal == 3 && orbColorTierOrder.Count() < 3) 
+                {
+                    int orbsFire = orbColorTierOrder.Where(o => o == OrbColor.Fire).Count();
+                    int orbsShadow = orbColorTierOrder.Where(o => o == OrbColor.Shadow).Count();
+                    int orbsNature = orbColorTierOrder.Where(o => o == OrbColor.Nature).Count();
+                    int orbsFrost = orbColorTierOrder.Where(o => o == OrbColor.Frost).Count();
+                    if (card.orbsFire >= 1 && card.orbsFire < orbsFire)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Fire);
+                    }
+                    else if (card.orbsShadow >= 1 && card.orbsShadow < orbsShadow)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Shadow);
+                    }
+                    else if (card.orbsNature >= 1 && card.orbsNature < orbsNature)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Nature);
+                    }
+                    else if (card.orbsFrost >= 1 && card.orbsFrost < orbsFrost)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Frost);
+                    }
+                    else if (card.orbsNeutral >= 1)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Nature); // ??????
+                    }
+                }
+                else if (card.orbsTotal == 4 && orbColorTierOrder.Count() < 4) 
+                {
+                    int orbsFire = orbColorTierOrder.Where(o => o == OrbColor.Fire).Count();
+                    int orbsShadow = orbColorTierOrder.Where(o => o == OrbColor.Shadow).Count();
+                    int orbsNature = orbColorTierOrder.Where(o => o == OrbColor.Nature).Count();
+                    int orbsFrost = orbColorTierOrder.Where(o => o == OrbColor.Frost).Count();
+                    if (card.orbsFire >= 1 && card.orbsFire < orbsFire)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Fire);
+                    }
+                    else if (card.orbsShadow >= 1 && card.orbsShadow < orbsShadow)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Shadow);
+                    }
+                    else if (card.orbsNature >= 1 && card.orbsNature < orbsNature)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Nature);
+                    }
+                    else if (card.orbsFrost >= 1 && card.orbsFrost < orbsFrost)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Frost);
+                    }
+                    else if (card.orbsNeutral >= 1)
+                    {
+                        orbColorTierOrder.Add(OrbColor.Nature); // ??????
+                    }
+                }
+            }
+
+            return orbColorTierOrder;
+        }
+
+        public List<CreateOrbColor> GetOrbColorBuildOrder()
+        {
+            List<CreateOrbColor> orbColorTierOrder = new List<CreateOrbColor>();
+            // Get all T1 cards from deck and make sure at least 1 is a squad. If in deck position 0, then use that orb color
+            // Get all T2 cards from deck
+            // Get all T3 cards from deck
+            for (int c = 0; c < myCurrentDeckOfficialCardIds.Ids.Length; c++)
+            {
+                int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[0]; // Starting unit for AI
+                if (unitOfficialCardId != 0) // Not a card
+                {
+                    SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
+                    if (card != null)
+                    {
+                        if (card.type == 0 && card.orbsTotal == 1) // // 0 - Unit, 1 - Building, 2 - Spell
+                        {
+                            if (card.orbsFire == 1)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Fire);
+                            }
+                            else if (card.orbsShadow == 1)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Shadow);
+                            }
+                            else if (card.orbsNature == 1)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Nature);
+                            }
+                            else if (card.orbsFrost == 1)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Frost);
+                            }
+                            else if (card.orbsNeutral == 1)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Nature); // ??????
+                            }
+                        }
+                        else if (card.orbsTotal == 2 && orbColorTierOrder.Count() < 2)
+                        {
+                            int orbsFire = orbColorTierOrder.Where(o => o == CreateOrbColor.Fire).Count();
+                            int orbsShadow = orbColorTierOrder.Where(o => o == CreateOrbColor.Shadow).Count();
+                            int orbsNature = orbColorTierOrder.Where(o => o == CreateOrbColor.Nature).Count();
+                            int orbsFrost = orbColorTierOrder.Where(o => o == CreateOrbColor.Frost).Count();
+                            if (card.orbsFire >= 1 && card.orbsFire < orbsFire)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Fire);
+                            }
+                            else if (card.orbsShadow >= 1 && card.orbsShadow < orbsShadow)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Shadow);
+                            }
+                            else if (card.orbsNature >= 1 && card.orbsNature < orbsNature)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Nature);
+                            }
+                            else if (card.orbsFrost >= 1 && card.orbsFrost < orbsFrost)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Frost);
+                            }
+                            else if (card.orbsNeutral >= 1)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Nature); // ??????
+                            }
+                        }
+                        else if (card.orbsTotal == 3 && orbColorTierOrder.Count() < 3)
+                        {
+                            int orbsFire = orbColorTierOrder.Where(o => o == CreateOrbColor.Fire).Count();
+                            int orbsShadow = orbColorTierOrder.Where(o => o == CreateOrbColor.Shadow).Count();
+                            int orbsNature = orbColorTierOrder.Where(o => o == CreateOrbColor.Nature).Count();
+                            int orbsFrost = orbColorTierOrder.Where(o => o == CreateOrbColor.Frost).Count();
+                            if (card.orbsFire >= 1 && card.orbsFire < orbsFire)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Fire);
+                            }
+                            else if (card.orbsShadow >= 1 && card.orbsShadow < orbsShadow)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Shadow);
+                            }
+                            else if (card.orbsNature >= 1 && card.orbsNature < orbsNature)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Nature);
+                            }
+                            else if (card.orbsFrost >= 1 && card.orbsFrost < orbsFrost)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Frost);
+                            }
+                            else if (card.orbsNeutral >= 1)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Nature); // ??????
+                            }
+                        }
+                        else if (card.orbsTotal == 4 && orbColorTierOrder.Count() < 4)
+                        {
+                            int orbsFire = orbColorTierOrder.Where(o => o == CreateOrbColor.Fire).Count();
+                            int orbsShadow = orbColorTierOrder.Where(o => o == CreateOrbColor.Shadow).Count();
+                            int orbsNature = orbColorTierOrder.Where(o => o == CreateOrbColor.Nature).Count();
+                            int orbsFrost = orbColorTierOrder.Where(o => o == CreateOrbColor.Frost).Count();
+                            if (card.orbsFire >= 1 && card.orbsFire < orbsFire)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Fire);
+                            }
+                            else if (card.orbsShadow >= 1 && card.orbsShadow < orbsShadow)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Shadow);
+                            }
+                            else if (card.orbsNature >= 1 && card.orbsNature < orbsNature)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Nature);
+                            }
+                            else if (card.orbsFrost >= 1 && card.orbsFrost < orbsFrost)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Frost);
+                            }
+                            else if (card.orbsNeutral >= 1)
+                            {
+                                orbColorTierOrder.Add(CreateOrbColor.Nature); // ??????
+                            }
+                        }
+                    }
+                }
+            }
+            return orbColorTierOrder;
+        }
 
         public Deck[] DecksForMap(Maps map, string? name, ulong crc)
         {
@@ -442,6 +687,7 @@ namespace Bots
         public void PrepareForBattle(Maps map, string? name, ulong crc, Deck deck)
         {
             cardsSMJ = Instances.CardService.GetSMJCardList(); // Used to determine which cards have what features
+
             Tasks? tasks = GetTasksBasedOnDeck(deck);
             botState = new BotState()
             {
@@ -490,11 +736,20 @@ namespace Bots
                 }
             }
 
+            buildArcherOnWallAtStartWasTrue = buildArcherOnWallAtStart;
+
             // Get the deck cardIds from the matching currentDeck.Name
             myCurrentDeckOfficialCardIds = myDeckOfficialCardIds.FirstOrDefault(d => d.Name == botState.selectedDeck.Name) ?? myDeckOfficialCardIds[0];
             archerCardPositions = GetArcherCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Cards in Deck are archers            
             towerCardPositions = GetTowerCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which cards are defense Towers example Stranglehold, Primeval Defender
             spellCardPositions = GetTowerCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which cards are defense Spess example Mine, Wallbreaker
+
+            myCurrentSMJCards = new List<SMJCard?>();
+            for (int i = 0; i < myCurrentDeckOfficialCardIds.Ids.Length; i++)
+            {
+                myCurrentSMJCards.Add(GetCardFromOfficialCardId(cardsSMJ, myCurrentDeckOfficialCardIds.Ids[i]));
+            }
+            orbColorBuildOrder = GetOrbColorBuildOrder(); // Based on the deck, what orb should I build next
 
             for (int i = 0; i < myCurrentDeckOfficialCardIds.Ids.Length; i++)
             {
@@ -1235,41 +1490,191 @@ namespace Bots
             return commands.ToArray();
         }
 
-
-        private Command[] BuildOrb(float myPower, out float powerRemaining, EntityId orbId, CreateOrbColor color, Position pos, uint tick)
+        float GetOrbCost()
         {
-            List<Command> commands = new List<Command>();
+            if (myOrbs.Count == 0)
+            {
+                return 100f;
+            }
+            else if (myOrbs.Count == 1)
+            {
+                return 150f;
+            }
+            else if (myOrbs.Count == 2)
+            {
+                return 250f;
+            }
+            else // if (myOrbs.Count >= 3)
+            {
+                return 300f;
+            }
+        }
+
+        string previousBuildNearestOrbMessage = "";
+        private Command? BuildNearestOrb(float myPower, out float powerRemaining, Entity squad, CreateOrbColor color, uint tick, out bool orbBuilt)
+        {
+            Command? command = null;
             powerRemaining = myPower;
-            float orbCost = 150f;
+            float orbCost = GetOrbCost();
+            if (myOrbs.Count == 0) { }
+            orbBuilt = false;
+            if (myPower > orbCost && botState.canPlayCardAt < tick)
+            {
+                Position2D pos = squad.Position.To2D();
+                EntityId nearestOrb = new EntityId(0u);
+                float nearestOrbDistanceSq = 0f;
+                float d = 0;
+                Position2D nearestOrbPosition = Position2DExt.Zero();
+                foreach (var s in emptyOrbs)
+                {
+                    if (s.Entity.PlayerEntityId != null)
+                        continue;
+                    d = DistanceSquared(pos, s.Entity.Position);
+                    if (nearestOrb.V == 0 || nearestOrbDistanceSq > d) // Closest empty orb
+                    {
+                        nearestOrb = s.Entity.Id;
+                        nearestOrbDistanceSq = d;
+                        nearestOrbPosition = s.Entity.Position.To2D();
+                    }
+                }
+                if (MathF.Sqrt(DistanceSquared(pos, nearestOrbPosition)) < 15) // Close enough to build orb
+                {
+                    string message = string.Format("Build nearest OrbId:{0} at pos:{1},{2}", nearestOrb, (int)nearestOrbPosition.X, (int)nearestOrbPosition.Y);
+                    if (message != previousBuildNearestOrbMessage)
+                    {
+                        Console.WriteLine(message);
+                        previousBuildNearestOrbMessage = message;
+                    }
+                    command = new CommandTokenSlotBuild
+                    {
+                        SlotId = nearestOrb,
+                        Color = color
+                    };
+                    powerRemaining -= orbCost;
+                    orbBuilt = true;
+                }
+                else // Have the squad get closer to the target
+                {
+                    string message = string.Format("Go to nearest OrbId:{0} at pos:{1},{2}", nearestOrb, (int)nearestOrbPosition.X, (int)nearestOrbPosition.Y);
+                    //string message = string.Format("Go to nearest OrbId:{0} at pos:{1},{2} from pos{3},{4}", nearestOrb, (int)nearestOrbPosition.X, (int)nearestOrbPosition.Y, (int)pos.X, (int)pos.Y);
+                    if (message != previousBuildNearestOrbMessage)
+                    {
+                        Console.WriteLine(message);
+                        previousBuildNearestOrbMessage = message;
+                    }
+                    return new CommandGroupGoto
+                    {
+                        Squads = new[] { squad.Id },
+                        Positions = new[]
+                     {
+                                    nearestOrbPosition,
+                                },
+                        WalkMode = WalkMode.Patrol,
+                        Orientation = 0
+                    };
+                }
+            }
+            return command;
+        }
+
+        private Command? BuildOrb(float myPower, out float powerRemaining, EntityId orbId, CreateOrbColor color, Position pos, uint tick)
+        {
+            Command? command = null;
+            powerRemaining = myPower;
+            float orbCost = GetOrbCost();
             if (myPower > orbCost && botState.canPlayCardAt < tick)
             {
                 Console.WriteLine("build OrbId:{orbId}");
-                Command command = new CommandTokenSlotBuild
+                command = new CommandTokenSlotBuild
                 {
                     SlotId = orbId,
                     Color = color
                 };
-                commands.Add(command);
                 powerRemaining -= orbCost;
             }
-            return commands.ToArray();
+            return command;
         }
 
-        private Command[] BuildWell(float myPower, out float powerRemaining, EntityId wellId, Position pos, uint tick)
+        string previousBuildNearestWellMessage = "";
+        private Command? BuildNearestWell(float myPower, out float powerRemaining, Entity squad, uint tick, out bool wellBuilt)
         {
-            List<Command> commands = new List<Command>();
+            Command? command = null;
+            powerRemaining = myPower;
+            float wellCost = 100f;
+            wellBuilt = false;
+            if (myPower > wellCost && botState.canPlayCardAt < tick)
+            {
+                Position2D pos = squad.Position.To2D();
+                EntityId nearestWell = new EntityId(0u);
+                float nearestWellDistanceSq = 0f;
+                float d = 0;
+                Position2D nearestWellPosition = Position2DExt.Zero();
+                foreach (var s in emptyWells)
+                {
+                    if (s.Entity.PlayerEntityId != null)
+                        continue;
+                    d = DistanceSquared(pos, s.Entity.Position);
+                    if (nearestWell.V == 0 || nearestWellDistanceSq > d) // Closest empty well
+                    {
+                        nearestWell = s.Entity.Id;
+                        nearestWellDistanceSq = d;
+                        nearestWellPosition = s.Entity.Position.To2D();
+                    }
+                }
+                if (MathF.Sqrt(DistanceSquared(pos, nearestWellPosition)) < 15) // Close enough to build well
+                {
+                    string message = string.Format("Build nearest WellId:{0} at pos:{1},{2}", nearestWell, (int)nearestWellPosition.X, (int)nearestWellPosition.Y);
+                    if (message != previousBuildNearestWellMessage)
+                    {
+                        Console.WriteLine(message);
+                        previousBuildNearestWellMessage = message;
+                    }
+                    command = new CommandPowerSlotBuild
+                    {
+                        SlotId = nearestWell,
+                    };
+                    powerRemaining -= wellCost;
+                    wellBuilt = true;
+                }
+                else // Have the squad get closer to the target
+                {
+                    string message = string.Format("Go to nearest WellId:{0} at pos:{1},{2}", nearestWell, (int)nearestWellPosition.X, (int)nearestWellPosition.Y);
+                    //string message = string.Format("Go to nearest WellId:{0} at pos:{1},{2} from pos:{3},{4}", nearestWell, (int)nearestWellPosition.X, (int)nearestWellPosition.Y, (int)pos.X, (int)pos.Y);
+                    if (message != previousBuildNearestWellMessage)
+                    {
+                        Console.WriteLine(message);
+                        previousBuildNearestWellMessage = message;
+                    }
+                    command = new CommandGroupGoto
+                    {
+                        Squads = new[] { squad.Id },
+                        Positions = new[]
+                     {
+                                    nearestWellPosition,
+                                },
+                        WalkMode = WalkMode.Force,
+                        Orientation = 0
+                    };
+                }
+            }
+            return command;
+        }
+
+
+        private Command? BuildWell(float myPower, out float powerRemaining, EntityId wellId, Position pos, uint tick)
+        {
+            Command? command = null;
             powerRemaining = myPower;
             if (myPower > 100f && botState.canPlayCardAt < tick)
             {
                 Console.WriteLine("build WellId:{wellId}");
-                Command command = new CommandPowerSlotBuild
+                command = new CommandPowerSlotBuild
                 {
                     SlotId = wellId
                 };
                 powerRemaining -= 100f;
-                commands.Add(command);
             }
-            return commands.ToArray();
+            return command;
         }
 
         private Command[] BuildWall(float myPower, out float powerRemaining, EntityId wallId, bool invertedDirection, uint tick)
@@ -1476,7 +1881,7 @@ namespace Bots
                             {
                                 Console.WriteLine("CommandBarrierGateToggle");
                             }
-                            botState.canPlayCardAt = currentTick.V + 10; // Delay next command by 1 second (10 ticks per second)
+                            botState.canPlayCardAt = currentTick.V + 10; // Delay next command by 1 second (10 ticks per second) // Note: Cards can only be played 1 per second!!!
                             break;
                         }
                     }
@@ -1555,6 +1960,69 @@ namespace Bots
 
                     if (currentTick.V % defaultTickUpdateRate == 0) // Try to do stuff every 0.5 second instead of every 1/10 second
                     {
+                        #region Build Nearest Empty Well at Start
+                        if (buildNearbyWellAtStart == true && emptyWells.Count() > 0)
+                        {
+                            int wellBuildingSquad = 0;
+                            if (buildArcherOnWallAtStartWasTrue == true)
+                            {
+                                wellBuildingSquad = 1; // Use the second squad
+                            }
+                            if (mySquads.Count() > wellBuildingSquad)
+                            {
+                                Command? buildNearestWellCommand = BuildNearestWell(myPower, out myPower, mySquads[wellBuildingSquad].Entity, currentTick.V, out bool isWellBuilt);
+                                if (buildNearestWellCommand != null && isWellBuilt == true)
+                                {
+                                    buildNearbyWellAtStart = false;
+                                    return new Command[] { buildNearestWellCommand };
+                                }
+                                else if (buildNearestWellCommand != null)
+                                {
+                                    return new Command[] { buildNearestWellCommand }; // Squad still going to nearest well
+                                }
+                                else
+                                {
+                                    myPower = 0; // Set Power to 0 so nothing else happens until a well is built
+                                }
+                            }
+                        }
+                        #endregion Build Nearest Empty Well at Start
+
+                        #region Build Nearest Empty Orb at Start
+                        if (myPower != 0 && buildNearbyOrbAtStart == true && emptyOrbs.Count() > 0)
+                        {
+                            int orbBuildingSquad = 0;
+                            if (buildArcherOnWallAtStartWasTrue == true)
+                            {
+                                orbBuildingSquad = 1; // Use the second squad
+                            }
+                            if (mySquads.Count() > orbBuildingSquad)
+                            {
+                                CreateOrbColor orbColor = CreateOrbColor.Fire;
+                                int myOrbCount = myOrbs.Count();
+                                if (orbColorBuildOrder.Count() > myOrbCount)
+                                {
+                                    orbColor = orbColorBuildOrder[myOrbs.Count()];
+                                }
+
+                                Command? buildNearestOrbCommand = BuildNearestOrb(myPower, out myPower, mySquads[orbBuildingSquad].Entity, orbColor, currentTick.V, out bool isOrbBuilt);
+                                if (buildNearestOrbCommand != null && isOrbBuilt == true)
+                                {
+                                    buildNearbyOrbAtStart = false;
+                                    return new Command[] { buildNearestOrbCommand };
+                                }
+                                else if (buildNearestOrbCommand != null)
+                                {
+                                    return new Command[] { buildNearestOrbCommand }; // Squad still going to nearest well
+                                }
+                                else
+                                {
+                                    myPower = 0; // Set Power to 0 so nothing else happens until a orb is built
+                                }
+                            }
+                        }
+                        #endregion Build Nearest Empty Orb at Start
+
                         #region Build Wall at start
                         if (buildNearbyWallAtStart == true && closestWall.V != 0 && myWalls.Count() == 0)
                         {
@@ -2394,7 +2862,7 @@ namespace Bots
             }
             else if (tasks.swiftclawTasks.produceSwiftclaw && tasks.swiftclawTasks.swiftclaw.V == 0)
             {
-                var SEARCH_ID = CardIdCreator.New(Api.CardTemplate.Swiftclaw, Upgrade.U3);
+                var SEARCH_ID = CardIdCreator.New(Api.CardTemplate.Swiftclaw, Api.Upgrade.U3);
                 var swiftclaw = Array.Find(entities.Squads, s => s.CardId == SEARCH_ID);
                 if (swiftclaw != null)
                 {
@@ -2563,26 +3031,26 @@ namespace Bots
             CoverCardIndex = 0,
             Cards = new Api.CardId[20]
             {
-                CardIdCreator.New(Api.CardTemplate.Windweavers, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.DryadAFrost, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Swiftclaw, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Shaman, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Spearmen, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.EnsnaringRoots, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Hurricane, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SurgeOfLight, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.NastySurprise, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.DarkelfAssassins, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Nightcrawler, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.AmiiPaladins, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.AmiiPhantom, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Burrower, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.ShadowPhoenix, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.AuraofCorruption, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Tranquility, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.CurseofOink, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.CultistMaster, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.AshbonePyro, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Windweavers, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.DryadAFrost, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Swiftclaw, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Shaman, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Spearmen, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.EnsnaringRoots, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Hurricane, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SurgeOfLight, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.NastySurprise, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.DarkelfAssassins, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Nightcrawler, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.AmiiPaladins, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.AmiiPhantom, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Burrower, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.ShadowPhoenix, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.AuraofCorruption, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Tranquility, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.CurseofOink, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.CultistMaster, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.AshbonePyro, Api.Upgrade.U3),
             }
         };
 
@@ -2620,26 +3088,26 @@ namespace Bots
             CoverCardIndex = 0,
             Cards = new Api.CardId[20]
     {
-                CardIdCreator.New(Api.CardTemplate.Scavenger, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Sunstriders, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Mine, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Eruption, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Wallbreaker, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Enforcer, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Firedancer, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SkyfireDrake, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Ravage, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.CurseofOink, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.EnsnaringRoots, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.BreedingGrounds, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SurgeOfLight, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SwampDrake, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Hurricane, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Burrower, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.MagmaHurler, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.StrangleholdAShadow, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Thunderstorm, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.DryadAFrost, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Scavenger, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Sunstriders, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Mine, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Eruption, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Wallbreaker, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Enforcer, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Firedancer, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SkyfireDrake, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Ravage, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.CurseofOink, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.EnsnaringRoots, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.BreedingGrounds, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SurgeOfLight, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SwampDrake, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Hurricane, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Burrower, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.MagmaHurler, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.StrangleholdAShadow, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Thunderstorm, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.DryadAFrost, Api.Upgrade.U3),
     }
         };
 
@@ -2677,26 +3145,26 @@ namespace Bots
             CoverCardIndex = 0,
             Cards = new Api.CardId[20]
      {
-                CardIdCreator.New(Api.CardTemplate.NomadANature, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Mine, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Eruption, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Sunderer, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Firedancer, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SkyfireDrake, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Ravage, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.CurseofOink, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.EnsnaringRoots, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.BreedingGrounds, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SurgeOfLight, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Sunstriders, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Hurricane, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Burrower, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.MagmaHurler, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SwampDrake, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.StrangleholdAShadow, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.DeathgliderAFrost, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Thunderstorm, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.DryadAFrost, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.NomadANature, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Mine, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Eruption, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Sunderer, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Firedancer, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SkyfireDrake, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Ravage, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.CurseofOink, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.EnsnaringRoots, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.BreedingGrounds, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SurgeOfLight, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Sunstriders, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Hurricane, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Burrower, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.MagmaHurler, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SwampDrake, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.StrangleholdAShadow, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.DeathgliderAFrost, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Thunderstorm, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.DryadAFrost, Api.Upgrade.U3),
      }
         };
 

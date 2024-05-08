@@ -214,8 +214,8 @@ namespace SkylordsRebornAPI.Cardbase
         public int gender { get; set; } // Non-Units, Unspecified, Male, Female
         public int movementType { get; set; } // Non-Units, Ground, Flying
         public int attackType { get; set; } // Non-Units, Melee, Ranged
-        public int offenseType { get; set; } // Non-Units, Small, Meidum, Large, Extra Large, Special
-        public int defenseType { get; set; } // Non-Units, Small, Meidum, Large, Extra Large
+        public int offenseType { get; set; } // Non-Units, Small, Medium, Large, Extra Large, Special
+        public int defenseType { get; set; } // Non-Units, Small, Medium, Large, Extra Large
         public int maxCharges { get; set; } // 4, 8, 12, 16, 20, 24
         public int squadSize { get; set; } // Spells, Buildings, 1, 2, 4, 6
         public int starterCard { get; set; } // Non-Starter, Starter

@@ -1262,6 +1262,13 @@ namespace Bots
                     BarrierSet[] myBarriers = Array.FindAll(state.Entities.BarrierSets, x => x.Entity.PlayerEntityId == botState.myId);
                     BarrierModule[] myWallsModules0 = Array.FindAll(state.Entities.BarrierModules, x => x.Entity.PlayerEntityId == botState.myId);
                     myWalls = myBarriers != null ? myBarriers.ToList() : new List<BarrierSet>();
+
+                    if (myWalls.Count() > 0)
+                    {
+                        int foo = 0;
+                        foo = foo + 1;
+                    }
+
                     myWallModules = myWallsModules0 != null ? myWallsModules0.ToList() : new List<BarrierModule>();
                     if (buildNearbyWallAtStart == true && closestWall.V != 0 && myWalls.Count() == 0)
                     {

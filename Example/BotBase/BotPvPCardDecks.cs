@@ -710,7 +710,7 @@ namespace Bots
 
         #region PvP Fire
 
-        public static readonly Deck TaintedFlame = new()
+        public static readonly Deck TaintedFlame = new() // Fire Shadown
         {
             Name = "TaintedFlame",
             CoverCardIndex = 0,

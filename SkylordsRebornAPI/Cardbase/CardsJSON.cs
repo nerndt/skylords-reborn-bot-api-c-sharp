@@ -204,11 +204,11 @@ namespace SkylordsRebornAPI.Cardbase
         public int orbsShadowNature { get; set; } // 0, 1, 2, 3, 4
         public int orbsFireFrost { get; set; } // 0, 1, 2, 3, 4
         public int affinity { get; set; } // None, Fire, Nature, Shadow, Frost
-        public int type { get; set; } // Unit, Building, Spell
+        public int type { get; set; } // 0 Unit, 1 Building, 2 Spell
         public string unitModel { get; set; } // Non-Units, Amazon, Atrocity, Balrog, Behemoth, Bird, Bow, Canine, Claw, Dancer, Dragon, Fighter, Floater, Guardian, Head, Insect, Mage, Minion, Quadraped, Raptor, Rider, Rifle, Roughneck, Ruffian, Serpent, Ship, Skyelf, Spear, Titan, Wagon, Worm, Unique
         public string category { get; set; }
         public string unitSpecies { get; set; } // Non-Units, Amii, Ancient, Artifact, Beast, Demon, Dragonkin, Elemental, Elf, Forestkin, Giant, Human, Kobold, Ogre, Orc, Primordial, Spirit, Undead, Special
-        public string unitClass { get; set; } // Non-Units, Archer, Commander, Corrupter, Crusader, Destroyer, Dominatior, Gladiatore, Marauder, Soldier, Supporter, Wizard, Special
+        public string unitClass { get; set; } // Non-Units, Archer, Commander, Corrupter, Crusader, Destroyer, Dominator, Gladiatore, Marauder, Soldier, Supporter, Wizard, Special
         public string buildingClass { get; set; } // Non-Buildings, Artillary, Barrier, Device, Fortress, Hut, Shrine, Statue, Tower
         public string spellClass { get; set; } // Non-Spells, Arcane, Enchantment, Spell
         public int gender { get; set; } // Non-Units, Unspecified, Male, Female

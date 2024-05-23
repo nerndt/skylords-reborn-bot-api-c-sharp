@@ -7,7 +7,7 @@ namespace Api
 {
     public static class ApiVersion
     {
-        public const UInt64 VERSION = 21;
+        public const UInt64 VERSION = 19;
     }
     public enum Upgrade
     {
@@ -872,161 +872,6 @@ namespace Api
         public required AbilityEffectSpecificHolder Specific { get; set; }
     }
 
-    /// <summary>
-    ///  State of entity being mounted (or not) on barrier
-    /// </summary>
-    public class MountStateHolder
-    {
-        /// <summary>
-        ///  not mounted on any barrier (EA's 0)
-        /// </summary>
-        [JsonPropertyName("Unmounted")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public MountStateUnmounted? Unmounted { get; set; }
-        /// <summary>
-        ///  squad in process of mounting to barrier (EA's 1, 2, 3)
-        /// </summary>
-        [JsonPropertyName("MountingSquad")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public MountStateMountingSquad? MountingSquad { get; set; }
-        /// <summary>
-        ///  figure in process of mounting to barrier (EA's 1, 2, 3)
-        /// </summary>
-        [JsonPropertyName("MountingFigure")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public MountStateMountingFigure? MountingFigure { get; set; }
-        /// <summary>
-        ///  squad mounted to barrier (EA's 4)
-        /// </summary>
-        [JsonPropertyName("MountedSquad")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public MountStateMountedSquad? MountedSquad { get; set; }
-        /// <summary>
-        ///  figure mounted to barrier (EA's 4)
-        /// </summary>
-        [JsonPropertyName("MountedFigure")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public MountStateMountedFigure? MountedFigure { get; set; }
-        /// <summary>
-        ///  Unknown (EA's 5, 6) please report a bug (ideally with steps to reproduce)
-        /// </summary>
-        [JsonPropertyName("Unknown")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public MountStateUnknown? Unknown { get; set; }
-
-        public MountState Get()
-        {
-            if (Unmounted != null) { return Unmounted; }
-            if (MountingSquad != null) { return MountingSquad; }
-            if (MountingFigure != null) { return MountingFigure; }
-            if (MountedSquad != null) { return MountedSquad; }
-            if (MountedFigure != null) { return MountedFigure; }
-            if (Unknown != null) { return Unknown; }
-            else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
-        }
-        public MountStateHolder() { }
-        public MountStateHolder(MountStateUnmounted v) { Unmounted = v; }
-        public MountStateHolder(MountStateMountingSquad v) { MountingSquad = v; }
-        public MountStateHolder(MountStateMountingFigure v) { MountingFigure = v; }
-        public MountStateHolder(MountStateMountedSquad v) { MountedSquad = v; }
-        public MountStateHolder(MountStateMountedFigure v) { MountedFigure = v; }
-        public MountStateHolder(MountStateUnknown v) { Unknown = v; }
-        public MountStateHolder(MountState v)
-        {
-            switch (v)
-            {
-                case MountStateUnmounted s:
-                    Unmounted = s; break;
-                case MountStateMountingSquad s:
-                    MountingSquad = s; break;
-                case MountStateMountingFigure s:
-                    MountingFigure = s; break;
-                case MountStateMountedSquad s:
-                    MountedSquad = s; break;
-                case MountStateMountedFigure s:
-                    MountedFigure = s; break;
-                case MountStateUnknown s:
-                    Unknown = s; break;
-            }
-        }
-    }
-    [JsonDerivedType(typeof(MountStateUnmounted))]
-    [JsonDerivedType(typeof(MountStateMountingSquad))]
-    [JsonDerivedType(typeof(MountStateMountingFigure))]
-    [JsonDerivedType(typeof(MountStateMountedSquad))]
-    [JsonDerivedType(typeof(MountStateMountedFigure))]
-    [JsonDerivedType(typeof(MountStateUnknown))]
-    public /*abstract*/ class MountState { }
-
-    /// <summary>
-    ///  not mounted on any barrier (EA's 0)
-    /// </summary>
-    public sealed class MountStateUnmounted : MountState
-    {
-    }
-
-    /// <summary>
-    ///  squad in process of mounting to barrier (EA's 1, 2, 3)
-    /// </summary>
-    public sealed class MountStateMountingSquad : MountState
-    {
-        [JsonPropertyName("barrier")]
-        public required EntityId Barrier { get; set; }
-    }
-
-    /// <summary>
-    ///  figure in process of mounting to barrier (EA's 1, 2, 3)
-    /// </summary>
-    public sealed class MountStateMountingFigure : MountState
-    {
-        [JsonPropertyName("barrier")]
-        public required EntityId Barrier { get; set; }
-        [JsonPropertyName("slot")]
-        public required byte Slot { get; set; }
-    }
-
-    /// <summary>
-    ///  squad mounted to barrier (EA's 4)
-    /// </summary>
-    public sealed class MountStateMountedSquad : MountState
-    {
-        [JsonPropertyName("barrier")]
-        public required EntityId Barrier { get; set; }
-    }
-
-    /// <summary>
-    ///  figure mounted to barrier (EA's 4)
-    /// </summary>
-    public sealed class MountStateMountedFigure : MountState
-    {
-        [JsonPropertyName("barrier")]
-        public required EntityId Barrier { get; set; }
-        [JsonPropertyName("slot")]
-        public required byte Slot { get; set; }
-    }
-
-    /// <summary>
-    ///  Unknown (EA's 5, 6) please report a bug (ideally with steps to reproduce)
-    /// </summary>
-    public sealed class MountStateUnknown : MountState
-    {
-        [JsonPropertyName("mount_state")]
-        public required byte MountState { get; set; }
-        [JsonPropertyName("enter_exit_barrier_module")]
-        public required UInt32 EnterExitBarrierModule { get; set; }
-        [JsonPropertyName("target_barrier_module")]
-        public required UInt32 TargetBarrierModule { get; set; }
-        [JsonPropertyName("current_barrier_module")]
-        public required UInt32 CurrentBarrierModule { get; set; }
-        [JsonPropertyName("slot")]
-        public required UInt32 Slot { get; set; }
-    }
-
-
-    /// <summary>
-    ///  Most of the aspects do not contain data, if you think any of them would contain something,
-    ///  and you would want to use it, let me know, and I will add it
-    /// </summary>
     public class AspectHolder
     {
         /// <summary>
@@ -1369,8 +1214,6 @@ namespace Api
 
     public sealed class AspectMountBarrier : Aspect
     {
-        [JsonPropertyName("state")]
-        public required MountStateHolder State { get; set; }
     }
 
     public sealed class AspectSpellMemory : Aspect
@@ -2376,21 +2219,6 @@ namespace Api
         [JsonPropertyName("TokenSlotBuild")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public CommandTokenSlotBuild? TokenSlotBuild { get; set; }
-        [JsonPropertyName("GroupKillEntity")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public CommandGroupKillEntity? GroupKillEntity { get; set; }
-        [JsonPropertyName("GroupSacrifice")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public CommandGroupSacrifice? GroupSacrifice { get; set; }
-        [JsonPropertyName("PortalDefineExitPoint")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public CommandPortalDefineExitPoint? PortalDefineExitPoint { get; set; }
-        [JsonPropertyName("PortalRemoveExitPoint")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public CommandPortalRemoveExitPoint? PortalRemoveExitPoint { get; set; }
-        [JsonPropertyName("TunnelMakeExitPoint")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public CommandTunnelMakeExitPoint? TunnelMakeExitPoint { get; set; }
         [JsonPropertyName("Ping")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public CommandPing? Ping { get; set; }
@@ -2424,11 +2252,6 @@ namespace Api
             if (ModeChange != null) { return ModeChange; }
             if (PowerSlotBuild != null) { return PowerSlotBuild; }
             if (TokenSlotBuild != null) { return TokenSlotBuild; }
-            if (GroupKillEntity != null) { return GroupKillEntity; }
-            if (GroupSacrifice != null) { return GroupSacrifice; }
-            if (PortalDefineExitPoint != null) { return PortalDefineExitPoint; }
-            if (PortalRemoveExitPoint != null) { return PortalRemoveExitPoint; }
-            if (TunnelMakeExitPoint != null) { return TunnelMakeExitPoint; }
             if (Ping != null) { return Ping; }
             if (Surrender != null) { return Surrender; }
             if (WhisperToMaster != null) { return WhisperToMaster; }
@@ -2456,11 +2279,6 @@ namespace Api
         public CommandHolder(CommandModeChange v) { ModeChange = v; }
         public CommandHolder(CommandPowerSlotBuild v) { PowerSlotBuild = v; }
         public CommandHolder(CommandTokenSlotBuild v) { TokenSlotBuild = v; }
-        public CommandHolder(CommandGroupKillEntity v) { GroupKillEntity = v; }
-        public CommandHolder(CommandGroupSacrifice v) { GroupSacrifice = v; }
-        public CommandHolder(CommandPortalDefineExitPoint v) { PortalDefineExitPoint = v; }
-        public CommandHolder(CommandPortalRemoveExitPoint v) { PortalRemoveExitPoint = v; }
-        public CommandHolder(CommandTunnelMakeExitPoint v) { TunnelMakeExitPoint = v; }
         public CommandHolder(CommandPing v) { Ping = v; }
         public CommandHolder(CommandSurrender v) { Surrender = v; }
         public CommandHolder(CommandWhisperToMaster v) { WhisperToMaster = v; }
@@ -2510,16 +2328,6 @@ namespace Api
                     PowerSlotBuild = s; break;
                 case CommandTokenSlotBuild s:
                     TokenSlotBuild = s; break;
-                case CommandGroupKillEntity s:
-                    GroupKillEntity = s; break;
-                case CommandGroupSacrifice s:
-                    GroupSacrifice = s; break;
-                case CommandPortalDefineExitPoint s:
-                    PortalDefineExitPoint = s; break;
-                case CommandPortalRemoveExitPoint s:
-                    PortalRemoveExitPoint = s; break;
-                case CommandTunnelMakeExitPoint s:
-                    TunnelMakeExitPoint = s; break;
                 case CommandPing s:
                     Ping = s; break;
                 case CommandSurrender s:
@@ -2550,11 +2358,6 @@ namespace Api
     [JsonDerivedType(typeof(CommandModeChange))]
     [JsonDerivedType(typeof(CommandPowerSlotBuild))]
     [JsonDerivedType(typeof(CommandTokenSlotBuild))]
-    [JsonDerivedType(typeof(CommandGroupKillEntity))]
-    [JsonDerivedType(typeof(CommandGroupSacrifice))]
-    [JsonDerivedType(typeof(CommandPortalDefineExitPoint))]
-    [JsonDerivedType(typeof(CommandPortalRemoveExitPoint))]
-    [JsonDerivedType(typeof(CommandTunnelMakeExitPoint))]
     [JsonDerivedType(typeof(CommandPing))]
     [JsonDerivedType(typeof(CommandSurrender))]
     [JsonDerivedType(typeof(CommandWhisperToMaster))]
@@ -2760,40 +2563,6 @@ namespace Api
         public required EntityId SlotId { get; set; }
         [JsonPropertyName("color")]
         public required CreateOrbColor Color { get; set; }
-    }
-
-    public sealed class CommandGroupKillEntity : Command
-    {
-        [JsonPropertyName("entities")]
-        public required EntityId[] Entities { get; set; }
-    }
-
-    public sealed class CommandGroupSacrifice : Command
-    {
-        [JsonPropertyName("squads")]
-        public required EntityId[] Squads { get; set; }
-        [JsonPropertyName("target")]
-        public required EntityId Target { get; set; }
-    }
-
-    public sealed class CommandPortalDefineExitPoint : Command
-    {
-        [JsonPropertyName("portal")]
-        public required EntityId Portal { get; set; }
-        [JsonPropertyName("xy")]
-        public required Position2D Xy { get; set; }
-    }
-
-    public sealed class CommandPortalRemoveExitPoint : Command
-    {
-        [JsonPropertyName("portal")]
-        public required EntityId Portal { get; set; }
-    }
-
-    public sealed class CommandTunnelMakeExitPoint : Command
-    {
-        [JsonPropertyName("portal")]
-        public required EntityId Portal { get; set; }
     }
 
     public sealed class CommandPing : Command
@@ -3143,15 +2912,15 @@ namespace Api
         [JsonPropertyName("projectiles")]
         public required Projectile[] Projectiles { get; set; }
         [JsonPropertyName("power_slots")]
-        public required PowerSlot[] PowerSlots { get; set; }
+        public required PowerSlot[] PowerSlots { get; set; } // Wells
         [JsonPropertyName("token_slots")]
-        public required TokenSlot[] TokenSlots { get; set; }
+        public required TokenSlot[] TokenSlots { get; set; } // Orbs
         [JsonPropertyName("ability_world_objects")]
         public required AbilityWorldObject[] AbilityWorldObjects { get; set; }
         [JsonPropertyName("squads")]
-        public required Squad[] Squads { get; set; }
+        public required Squad[] Squads { get; set; } // Groups of units
         [JsonPropertyName("figures")]
-        public required Figure[] Figures { get; set; }
+        public required Figure[] Figures { get; set; } // Units
         [JsonPropertyName("buildings")]
         public required Building[] Buildings { get; set; }
         [JsonPropertyName("barrier_sets")]

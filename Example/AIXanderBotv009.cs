@@ -15,8 +15,6 @@ using SkylordsRebornAPI.Cardbase.Cards;
 using System.Runtime.ConstrainedExecution;
 using System.Drawing;
 
-// TODO Put archers on wall modules nearest to enemy.
-// Check code of when to attack enemy instead of target (typically enemy orb)
 namespace Bots
 {
     // /AI: list
@@ -51,7 +49,7 @@ namespace Bots
      StartType=1    
      ##########################################################
      */
-    public class AIXanderBot : IAspWrapperImpl
+    public class AIXanderBotv009 : IAspWrapperImpl // NGE05232024 Version works pretty well!!!
     {
         string IAspWrapperImpl.Name => "XanderAI";
 
@@ -137,7 +135,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.0";
+        string botVersion = "0.0.0.9";
 
         string previousTargetMessage = string.Empty;
 
@@ -214,7 +212,7 @@ namespace Bots
 
         float nearestBarrierDistance = float.MaxValue; // Is there a wall by my first orb?
         float buildWallCost = 50f; // NGE05012024!!!!!! How can I get the cost to build the wall?
-        float enemyNearOrbDistance = 200; // 170; // Distance to use to decide when to build a wall near my orb - 170 allowed swift squad to get to orb before I built wall
+        float enemyNearOrbDistance = 170; // Distance to use to decide when to build a wall near my orb
         float engageEnemyNearOrbDistance = 50; // Distance to use to decide when to attack an enemy near my orb
 
         EntityId closestWall = new EntityId(0u);
@@ -1485,27 +1483,27 @@ namespace Bots
         float wellHealLimit = 200;
 
         string previousMessageRepairWell = "";
-        public Command? RepairWell(PowerSlot well, float myPower, ref float powerRemaining)
+        public Command? RepairWell(PowerSlot wall, float myPower, ref float powerRemaining)
         {
             // If a well has less than a certain % health, then repair the well
             float wellPowerCost = 100;
 
-            var wellAspectHealth = well.Entity.Aspects.FirstOrDefault(h => h.Health != null) ?? null;
+            var wellAspectHealth = wall.Entity.Aspects.FirstOrDefault(h => h.Health != null) ?? null;
             // if (wellAspectHealth != null && wellAspectHealth.Health != null && wellAspectHealth.Health.CurrentHp < maxModuleHealth) // Not at 100% health
             if (wellAspectHealth != null && wellAspectHealth.Health != null && wellAspectHealth.Health.CurrentHp < wellAspectHealth.Health.CapCurrentMax) // Not at 100% health
             {
-                string message = string.Format("Repair Well BuildingId:{0}", well.Entity.Id);
+                string message = string.Format("Repair Well BuildingId:{0}", wall.Entity.Id);
                 if (previousMessageRepairWell != message)
                 {
                     Console.WriteLine(message);
                     previousMessageRepairWell = message;
                 }
                 // botState.canPlayCardAt = uint.MaxValue; // NGE05222024!!!!! 
-                powerRemaining = MathF.Max(0, myPower - wellPowerCost * (wellAspectHealth.Health.CapCurrentMax - wellAspectHealth.Health.CurrentHp) / wellAspectHealth.Health.CapCurrentMax); // NGE05222024 2000 Max health = 100 powerCost
+                powerRemaining = Math.Max(0, myPower - wellPowerCost * (wellAspectHealth.Health.CapCurrentMax - wellAspectHealth.Health.CurrentHp) / wellAspectHealth.Health.CapCurrentMax); // NGE05222024 2000 Max health = 100 powerCost
 
                 Command command = new CommandRepairBuilding
                 {
-                    BuildingId = well.Entity.Id,
+                    BuildingId = wall.Entity.Id,
                 };
 
                 return command;
@@ -1514,7 +1512,7 @@ namespace Bots
             {
                 Command command = new CommandPowerSlotBuild
                 {
-                    SlotId = well.Entity.Id
+                    SlotId = wall.Entity.Id
                 };
                 return command;
             }
@@ -1537,7 +1535,7 @@ namespace Bots
                     previousMessageRepairOrb = message;
                 }
                 // botState.canPlayCardAt = uint.MaxValue; // NGE05222024!!!!! 
-                powerRemaining = MathF.Max(0, myPower - (orbCost * (orbAspectHealth.Health.CapCurrentMax - orbAspectHealth.Health.CurrentHp) / orbAspectHealth.Health.CapCurrentMax)); // NGE05222024 
+                powerRemaining = myPower - (orbCost * (orbAspectHealth.Health.CapCurrentMax - orbAspectHealth.Health.CurrentHp) / orbAspectHealth.Health.CapCurrentMax); // NGE05222024 
                 Command command = new CommandRepairBuilding
                 {
                     BuildingId = orb.Entity.Id,
@@ -1604,7 +1602,7 @@ namespace Bots
                     previousMessageRepairBuilding = message;
                 }
                 // botState.canPlayCardAt = uint.MaxValue; // NGE05222024!!!!! 
-                powerRemaining = MathF.Max(0, myPower - buildingCost * (buildingAspectHealth.Health.CapCurrentMax - buildingAspectHealth.Health.CurrentHp) / buildingAspectHealth.Health.CapCurrentMax); // NGE05222024 
+                powerRemaining = myPower - buildingCost * (buildingAspectHealth.Health.CapCurrentMax - buildingAspectHealth.Health.CurrentHp) / buildingAspectHealth.Health.CapCurrentMax; // NGE05222024 
                 Command command = new CommandRepairBuilding
                 {
                     BuildingId = building.Entity.Id,
@@ -1636,7 +1634,7 @@ namespace Bots
                         {
                             string message = string.Format("Repair WallId:{0}", barrier.Entity.Id);
                             Console.WriteLine(message);
-                            powerRemaining = MathF.Max(0, myPower - barrierModuleCost); // (moduleAspectHealth.Health.CapCurrentMax - moduleAspectHealth.Health.CurrentHp); // NGE05222024 
+                            powerRemaining = myPower - barrierModuleCost; // (moduleAspectHealth.Health.CapCurrentMax - moduleAspectHealth.Health.CurrentHp); // NGE05222024 
                             Command command = new CommandBarrierRepair
                             {
                                 BarrierId = barrier.Entity.Id,
@@ -2204,7 +2202,7 @@ namespace Bots
             float orbCost = GetOrbCost();
             if (myOrbs.Count == 0) { }
             orbBuilt = false;
- 
+            if (myPower > orbCost) // NGE05222024 Not needed for wells, orbs and barriers - only cards!!!!! if (botState.canPlayCardAt < tick) // if (myPower > orbCost && botState.canPlayCardAt < tick)
             {
                 Position2D pos = squad.Position.To2D();
                 EntityId nearestOrb = new EntityId(0u);
@@ -2288,7 +2286,7 @@ namespace Bots
             powerRemaining = myPower;
             float wellCost = 100f;
             wellBuilt = false;
-
+            if (myPower > wellCost) // NGE05222024 Not needed for wells, orbs and barriers - only cards!!!!! if (botState.canPlayCardAt < tick) // if (myPower > wellCost && botState.canPlayCardAt < tick)
             {
                 Position2D pos = squad.Position.To2D();
                 EntityId nearestWell = new EntityId(0u);
@@ -2434,7 +2432,7 @@ namespace Bots
             List<Command> commands = new List<Command>();
             powerRemaining = myPower;
             // How to get the power cost to build structure?  API.Building.PowerCost or SMJCard.powerCost
-            if (myPower > 50f && botState.canPlayCardAt < tick) // 05222024 Changed from 100f to 50f !!!!!
+            if (myPower > 100f && botState.canPlayCardAt < tick)
             {
                 string message = string.Format("Build WallId:{0}", wallId.V);
                 ConsoleWriteLine(true, message);
@@ -2944,11 +2942,15 @@ namespace Bots
                                     buildNearbyWellAtStart = false;
                                     commands.Add(buildNearestWellCommand); // NGE05122024!!!!!! 
                                     return commands.ToArray(); // NGE05122024!!!!!! 
+                                    
+                                    // NGE05122024!!!!!! return new Command[] { buildNearestWellCommand }; // Well seems to be built properly
                                 }
                                 else if (buildNearestWellCommand != null)
                                 {
                                     commands.Add(buildNearestWellCommand); // NGE05122024!!!!!! 
                                     return commands.ToArray(); // NGE05122024!!!!!! 
+                                                               
+                                    // NGE05122024!!!!!! return new Command[] { buildNearestWellCommand }; Squad still going to nearest well
                                 }
                                 else
                                 {
@@ -3092,6 +3094,10 @@ namespace Bots
                                 {
                                     byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
                                     myAttackSquads = mySquads.Where(a => a.CardId != currentDeck.Cards[cardPosition]).ToList(); // See if I have any archers
+                                    // NGE05232024!!!!!! if (enemyAttackingSquads != null && myAttackSquads != null && enemyAttackingSquads.Count() > 0)
+                                    // NGE05232024!!!!!! {
+                                    // NGE05232024!!!!!!     myAttackSquads = myAttackSquads.Except(enemyAttackingSquads).ToList();
+                                    // NGE05232024!!!!!! }
                                     attackSquadCount = myAttackSquads.Count();
                                 }
                                 #endregion Determine Attack and Defend Squads

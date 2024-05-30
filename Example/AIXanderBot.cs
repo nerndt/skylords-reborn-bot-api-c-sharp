@@ -137,7 +137,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.0";
+        string botVersion = "0.0.1.1";
 
         string previousTargetMessage = string.Empty;
 
@@ -161,7 +161,10 @@ namespace Bots
         bool attackClosestSquad = false;
         bool attackClosestWell = false;
 
-        bool attackingEnemyNearBase = false; // Is there an enemy near my Orb and am I already attacking it?
+        bool isEnemyNearBase = false; // Is there an enemy near my Orb and am I already attacking it?
+        bool isEnemyOrbNearBase = false; // Is there an enemy orb near my Orb and am I already attacking it?
+        bool isEnemyWellNearBase = false; // Is there an enemy well near my Orb and am I already attacking it?
+        bool isEnemyBuildingNearBase = false; // Is there an enemy building near my Orb and am I already attacking it?
 
         List<Strategy> strategyList = new List<Strategy>(); // This dictates what to build when in the process
 
@@ -216,6 +219,7 @@ namespace Bots
         float buildWallCost = 50f; // NGE05012024!!!!!! How can I get the cost to build the wall?
         float enemyNearOrbDistance = 200; // 170; // Distance to use to decide when to build a wall near my orb - 170 allowed swift squad to get to orb before I built wall
         float engageEnemyNearOrbDistance = 50; // Distance to use to decide when to attack an enemy near my orb
+        float maxPowerToDoMore = 200;
 
         EntityId closestWall = new EntityId(0u);
         float closestWallDistanceSq = 0f;
@@ -272,7 +276,8 @@ namespace Bots
             else
             {
                 List<EntityId> squadsIds = squads.Select(s => s.Entity.Id).ToList();
-                string message = string.Format("Attack target:{0} type:{1} at pos X,Y:{2},{3} with {4} squad(s)", target.V, targetType, (int)pos.X, (int)pos.Y, squads.Count);
+                string message = string.Format("Attack target:{0} type:{1} with {2} squad(s)", target.V, targetType, squads.Count);
+                // string message = string.Format("Attack target:{0} type:{1} at pos X,Y:{2},{3} with {4} squad(s)", target.V, targetType, (int)pos.X, (int)pos.Y, squads.Count);
                 if (message != previousMessageAttackNearbyEnemyType)
                 {
                     previousMessageAttackNearbyEnemyType = message;
@@ -329,6 +334,90 @@ namespace Bots
             }
         }
 
+        private void GetAttackingSquadsCloserToWellThanTarget(List<PowerSlot> enemyWells, List<Squad> myAttackingSquads, Entity target, out List<Squad>? engageEnemyAttackingSquads, out List<Squad>? myAttackingSquadsUpdated)
+        {
+            engageEnemyAttackingSquads = null;
+            myAttackingSquadsUpdated = null;
+            float dTarget = float.MaxValue;
+            float dEnemy = float.MaxValue;
+            foreach (Squad sq in myAttackingSquads)
+            {
+                foreach (PowerSlot sqEnemy in enemyWells)
+                {
+                    dTarget = DistanceSquared(sq.Entity.Position.To2D(), target.Position.To2D());
+                    dEnemy = DistanceSquared(sq.Entity.Position.To2D(), sqEnemy.Entity.Position.To2D());
+                    if (dTarget < dEnemy)
+                    {
+                        if (myAttackingSquadsUpdated == null)
+                        {
+                            myAttackingSquadsUpdated = new List<Squad>();
+                        }
+                        if (myAttackingSquadsUpdated.Contains(sq) == false)
+                        {
+                            myAttackingSquadsUpdated.Add(sq);
+                        }
+                    }
+                    else
+                    {
+                        if (engageEnemyAttackingSquads == null)
+                        {
+                            engageEnemyAttackingSquads = new List<Squad>();
+                        }
+                        if (engageEnemyAttackingSquads.Contains(sq) == false)
+                        {
+                            engageEnemyAttackingSquads.Add(sq);
+                        }
+                    }
+                }
+            }
+            if (myAttackingSquadsUpdated != null && engageEnemyAttackingSquads != null) // Exclude overlapping squads between the groups!
+            {
+                myAttackingSquadsUpdated = myAttackingSquadsUpdated.Except(engageEnemyAttackingSquads).ToList();
+            }
+        }
+
+        private void GetAttackingSquadsCloserToWellThanTarget(List<TokenSlot> enemyOrbs, List<Squad> myAttackingSquads, Entity target, out List<Squad>? engageEnemyAttackingSquads, out List<Squad>? myAttackingSquadsUpdated)
+        {
+            engageEnemyAttackingSquads = null;
+            myAttackingSquadsUpdated = null;
+            float dTarget = float.MaxValue;
+            float dEnemy = float.MaxValue;
+            foreach (Squad sq in myAttackingSquads)
+            {
+                foreach (TokenSlot sqEnemy in enemyOrbs)
+                {
+                    dTarget = DistanceSquared(sq.Entity.Position.To2D(), target.Position.To2D());
+                    dEnemy = DistanceSquared(sq.Entity.Position.To2D(), sqEnemy.Entity.Position.To2D());
+                    if (dTarget < dEnemy)
+                    {
+                        if (myAttackingSquadsUpdated == null)
+                        {
+                            myAttackingSquadsUpdated = new List<Squad>();
+                        }
+                        if (myAttackingSquadsUpdated.Contains(sq) == false)
+                        {
+                            myAttackingSquadsUpdated.Add(sq);
+                        }
+                    }
+                    else
+                    {
+                        if (engageEnemyAttackingSquads == null)
+                        {
+                            engageEnemyAttackingSquads = new List<Squad>();
+                        }
+                        if (engageEnemyAttackingSquads.Contains(sq) == false)
+                        {
+                            engageEnemyAttackingSquads.Add(sq);
+                        }
+                    }
+                }
+            }
+            if (myAttackingSquadsUpdated != null && engageEnemyAttackingSquads != null) // Exclude overlapping squads between the groups!
+            {
+                myAttackingSquadsUpdated = myAttackingSquadsUpdated.Except(engageEnemyAttackingSquads).ToList();
+            }
+        }
+
         string previousMessageAttackType = "";
         private Command? Attack(EntityId target, string targetType, List<Squad> squads, Position2D pos, int unitsNeededBeforeAttack)
         {
@@ -351,7 +440,8 @@ namespace Bots
             else
             {
                 List<EntityId> squadsIds = squads.Select(s => s.Entity.Id).ToList();
-                string message = string.Format("Attack target:{0} type:{1} at pos X,Y:{2},{3} with {4} squad(s)", target.V, targetType, (int)pos.X, (int)pos.Y, squads.Count);
+                string message = string.Format("Attack target:{0} type:{1} with {2} squad(s)", target.V, targetType, squads.Count);
+                // string message = string.Format("Attack target:{0} type:{1} at pos X,Y:{2},{3} with {4} squad(s)", target.V, targetType, (int)pos.X, (int)pos.Y, squads.Count);
                 if (message != previousMessageAttackType)
                 {
                     previousMessageAttackType = message;
@@ -388,7 +478,8 @@ namespace Bots
             else
             {
                 List<EntityId> squadsIds = squads.Select(s => s.Entity.Id).ToList();
-                string message = string.Format("Attack target:{0}  at pos X,Y:{1},{2} with {3} squads", target.V, (int)pos.X, (int)pos.Y, squads.Count);
+                string message = string.Format("Attack target:{0}  with {1} squads", target.V, squads.Count);
+                // string message = string.Format("Attack target:{0}  at pos X,Y:{1},{2} with {3} squads", target.V, (int)pos.X, (int)pos.Y, squads.Count);
                 if (message != previousMessageAttack)
                 {
                     previousMessageAttack = message;
@@ -1324,6 +1415,36 @@ namespace Bots
 
             return breachBarrierModule;
         }
+
+        // If gate is down or a barrier module has 0 health, then I can skip attacking the barrier
+        public bool BreachBarrierSetModules(GameState state, BarrierSet barrier, List<BarrierModule> modules)
+        {
+            bool breachBarrierModule = false;
+
+            // NOTE: For now just use the first barrier!!!!!!
+            foreach (var module in modules)
+            {
+                if (module.Set.V == barrier.Entity.Id.V) // Part of the same Barrier
+                {
+                    var moduleAspectHealth = module.Entity.Aspects.FirstOrDefault(h => h.Health != null) ?? null;
+                    if (moduleAspectHealth == null) // This should mean a module is fully broken so I can attack something else!
+                    {
+                        return true;
+                    }
+                    var gateAspect = module.Entity.Aspects.FirstOrDefault(g => g.BarrierGate != null) ?? null;
+                    if (gateAspect != null) // Has a gate.  Now need to find a way to determine its state open/closed
+                    {
+                        if (gateAspect.BarrierGate.Open == true)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return breachBarrierModule;
+        }
+
 
         // NGE05222024 For now if squad is an archer, do not include it - since they are typically on a wall !!!!!
         public Squad? NearestSquadToEnemy(Entity enemy)
@@ -2646,6 +2767,65 @@ namespace Bots
             return null;
         }
 
+        private void AttackBarrierModules(List<BarrierSet>? wallsToAttack, Api.GameState state, List<BarrierModule>? enemyBarrierModules, ref float nearestOpponentBarrierDistance, ref bool isBarrierOpen, ref Entity targetEntityWall, ref EntityId targetWall, ref Squad? attackSquad)
+        {
+            //Entity targetEntityWall = null;
+            Position nearestOpponentBarrierPosition;
+            // if (wallsToAttack != null && wallsToAttack.Count() > 0)
+            {
+                foreach (var wall in wallsToAttack)
+                {
+                    isBarrierOpen = BreachBarrierSetModules(state, wall, enemyWallModules);
+                    if (isBarrierOpen == false)
+                    {
+                        if (enemyBarrierModules == null)
+                        {
+                            enemyBarrierModules = enemyWallModules.Where(m => m.Set == wall.Entity.Id).Select(s => s).ToList();
+                        }
+                        else
+                        {
+                            List<BarrierModule>? barrierModuleTemp = enemyWallModules.Where(m => m.Set == wall.Entity.Id).Select(s => s).ToList();
+                            if (barrierModuleTemp != null && barrierModuleTemp.Count() > 0)
+                            {
+                                enemyBarrierModules.AddRange(barrierModuleTemp);
+                            }
+                        }
+
+                        if (isBarrierOpen == false && enemyBarrierModules != null)
+                        {
+                            foreach (var s in enemyBarrierModules) // NGE05222024 enemyWallModules) // if barrier module is near me attack it if it is not broken or the gate is open
+                            {
+                                nearestOpponentBarrierPosition = s.Entity.Position;
+                                //// Find the BarrierModule that has the same EntityId as the enemyWalls.EntityId
+                                //BarrierModule? barrier = state.Entities.BarrierModules.Where(x => x.Entity.Id == s.Entity.Id).FirstOrDefault();
+                                //if (barrier == null)
+                                //{
+                                //    continue;
+                                //}
+                                //else
+                                //{
+                                //    nearestOpponentBarrierPosition = barrier.Entity.Position;
+                                //}
+                                foreach (Squad squad in myAttackSquads)
+                                {
+                                    float squadDistanceToWall = DistanceSquared(squad.Entity.Position.To2D(), nearestOpponentBarrierPosition);
+                                    //float squadDistanceToWall = DistanceSquared(attackSquad.Entity.Position.To2D(), s.Entity.Position);
+                                    if (squadDistanceToWall < nearestOpponentBarrierDistance)
+                                    {
+                                        nearestOpponentBarrierDistance = squadDistanceToWall;
+                                        targetWall = s.Entity.Id;
+                                        targetEntityWall = s.Entity;
+                                        attackSquad = squad;
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
+
         public Command[] SendCommands(GameState state, Deck currentDeck)
         {
             /*
@@ -2864,7 +3044,7 @@ namespace Bots
                                     Command? spawnOnBarrier = null;
 
                                     byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
-                                    var archerSquad = mySquads.Where(a => a.CardId == currentDeck.Cards[cardPosition]).ToList(); // See if I have any archers
+                                    var archerSquads = mySquads.Where(a => a.CardId == currentDeck.Cards[cardPosition]).ToList(); // See if I have any archers
 
                                     int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPosition]; // Should be an archer
 
@@ -3291,7 +3471,7 @@ namespace Bots
                                 Command? attack = null;
                                 Command? attackEnemy = null;
 
-                                if (attackingEnemyNearBase == true) // Keep attacking enemies near my orb base until gone!
+                                if (isEnemyNearBase == true) // Keep attacking enemies near my orb base until gone!
                                 {
                                     int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[0]; // Starting unit for AI
 
@@ -3374,13 +3554,14 @@ namespace Bots
 
                                 float nearestWellDistance = float.MaxValue;
 
-                                if (attackSquadCount < defaultAttackSquads)
+                                if (attackSquadCount < defaultAttackSquads || myPower > maxPowerToDoMore)
                                 {
                                     //string message = string.Format("SpawnUnit Attack with {0} army < {1}", attackSquads.Count(), defaultAttackSquads);
                                     //ConsoleWriteLine(true, message);
                                     spawn = SpawnUnit(myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);
                                 }
-                                else if (myWalls.Count() > 0 && defendSquadCount < defaultDefendSquads)
+                                else if (myWalls.Count() > 0 && defendSquadCount < defaultDefendSquads || 
+                                        (enemyAttackingSquads != null && enemyAttackingSquads.Count() > defendSquadCount))
                                 {
                                     Position2D wallPos = myWalls[0].Entity.Position.To2D(); // Get nearest wall pos
                                     EntityId myWallId = myWalls[0].Entity.Id;
@@ -3409,8 +3590,11 @@ namespace Bots
                                     }
                                 }
                                 else // Build more wells or orbs // NGE05222024!!!!!
-                                {
-
+                                {                                    
+                                    if (myWalls.Count() > 0 && myDefendSquads != null && myDefendSquads.Count() > 0) // Make sure archers are on walls if near them!
+                                    {
+                                        //archerSquad
+                                    }
                                 }
                                
                                 var target = new EntityId(0u);
@@ -3457,7 +3641,21 @@ namespace Bots
                                     }
                                 }
 
-                                // If an enemy squad is a certain distance from my main orb, attack it!
+                                // NGE05232024 Below !!!!!!
+                                if (isEnemyNearBase == false)
+                                {
+                                    isEnemyNearBase = IsEnemyNearBase(75f, out List<Squad> enemySquadAttackingNearBase); // 75 seems to include nearby well or orb
+                                    enemyAttackingSquads = enemySquadAttackingNearBase;
+                                }
+                                else
+                                {
+                                    enemyAttackingSquads = null;
+                                    isEnemyNearBase = false;
+                                }
+                                // NGE05232024 Above !!!!!!
+
+                                /* // NGE05232024 !!!!!!
+                                #region // If an enemy squad is a certain distance from my main orb, attack it!
                                 //if (attackingEnemyNearBase == false)
                                 {
                                     if (IsEnemyNearBase(175f, out List<Squad> enemySquadAttackingNearBase) == true) // I think 175 deals with long range enemy fire???
@@ -3525,6 +3723,8 @@ namespace Bots
                                 //        attackingEnemyNearBase = false;
                                 //    }
                                 //}
+                                #endregion // If an enemy squad is a certain distance from my main orb, attack it!
+                                */ // NGE05232024 !!!!!!
 
                                 float nearestOpponentSquadDistance = float.MaxValue;
                                 if (attackClosestSquad == true || (enemyOrbs.Count() == 0 && enemyWells.Count() == 0))
@@ -3552,38 +3752,92 @@ namespace Bots
                                 // List<Entity>? enemyBarrierModuleEntities = null;
                                 List<BarrierModule>? enemyBarrierModules = null;
                                 List<BarrierSet>? wallsToAttack = GetWallsNearOrbs(enemyWalls, enemyOrbs); // First attack enemyWalls that are near an enemy orb!
+
+    
                                 if (wallsToAttack != null && wallsToAttack.Count() > 0)
                                 {
-                                    isBarrierOpen = BreachBarrierSetModules(state, wallsToAttack, enemyWallModules);
-                                    if (isBarrierOpen == false)
+                                    AttackBarrierModules(wallsToAttack, state, enemyBarrierModules, ref nearestOpponentBarrierDistance, ref isBarrierOpen, ref targetEntityWall, ref targetWall, ref attackSquad);
+                                    /* // NGE05292024 
+                                    foreach (var wall in wallsToAttack)
                                     {
-                                        // enemyBarrierModuleEntities = enemyWallModules.Where(m => m.Set == wallsToAttack[0].Entity.Id).Select(s => s.Entity).ToList();
-                                        enemyBarrierModules = enemyWallModules.Where(m => m.Set == wallsToAttack[0].Entity.Id).Select(s => s).ToList();
+                                        isBarrierOpen = BreachBarrierSetModules(state, wall, enemyWallModules);
+                                        if (isBarrierOpen == false)
+                                        {
+                                            if (enemyBarrierModules == null)
+                                            {
+                                                enemyBarrierModules = enemyWallModules.Where(m => m.Set == wall.Entity.Id).Select(s => s).ToList();
+                                            }
+                                            else
+                                            {
+                                                List<BarrierModule>? barrierModuleTemp = enemyWallModules.Where(m => m.Set == wall.Entity.Id).Select(s => s).ToList();
+                                                if (barrierModuleTemp != null && barrierModuleTemp.Count() > 0)
+                                                {
+                                                    enemyBarrierModules.AddRange(barrierModuleTemp);
+                                                }
+                                            }
+                                        }
                                     }
+                                    */ // NGE05292024 
                                 }
                                 else
                                 {
                                     wallsToAttack = GetWallsNearWells(enemyWalls, enemyWells); // Second attack enemyWalls that are near an enemy well!
                                     if (wallsToAttack != null && wallsToAttack.Count() > 0)
                                     {
-                                        isBarrierOpen = BreachBarrierSetModules(state, wallsToAttack, enemyWallModules);
-                                        if (isBarrierOpen == false)
+                                        AttackBarrierModules(wallsToAttack, state, enemyBarrierModules, ref nearestOpponentBarrierDistance, ref isBarrierOpen, ref targetEntityWall, ref targetWall, ref attackSquad);
+                                        /* // NGE05292024 
+                                        foreach (var wall in wallsToAttack)
                                         {
-                                            // enemyBarrierModuleEntities = enemyWallModules.Where(m => m.Set == wallsToAttack[0].Entity.Id).Select(s => s.Entity).ToList();
-                                            enemyBarrierModules = enemyWallModules.Where(m => m.Set == wallsToAttack[0].Entity.Id).Select(s => s).ToList();
+                                            isBarrierOpen = BreachBarrierSetModules(state, wall, enemyWallModules);
+                                            if (isBarrierOpen == false)
+                                            {
+                                                if (enemyBarrierModules == null)
+                                                {
+                                                    enemyBarrierModules = enemyWallModules.Where(m => m.Set == wall.Entity.Id).Select(s => s).ToList();
+                                                }
+                                                else
+                                                {
+                                                    List<BarrierModule>? barrierModuleTemp = enemyWallModules.Where(m => m.Set == wall.Entity.Id).Select(s => s).ToList();
+                                                    if (barrierModuleTemp != null && barrierModuleTemp.Count() > 0)
+                                                    {
+                                                        enemyBarrierModules.AddRange(barrierModuleTemp);
+                                                    }
+                                                }
+                                            }
                                         }
+                                        */ // NGE05292024 
                                     }
                                     else
                                     {
-                                        isBarrierOpen = BreachBarrierSetModules(state, enemyWalls, enemyWallModules);
-                                        if (isBarrierOpen == false)
+                                        if (wallsToAttack != null && wallsToAttack.Count() > 0)
                                         {
-                                            // enemyBarrierModuleEntities = enemyWallModules.Where(m => m.Set == enemyWalls[0].Entity.Id).Select(s => s.Entity).ToList();
-                                            enemyBarrierModules = enemyWallModules.Where(m => m.Set == enemyWalls[0].Entity.Id).Select(s => s).ToList();
+                                            AttackBarrierModules(wallsToAttack, state, enemyBarrierModules, ref nearestOpponentBarrierDistance, ref isBarrierOpen, ref targetEntityWall, ref targetWall, ref attackSquad);
+                                            /* // NGE05292024 
+                                            foreach (var wall in wallsToAttack)
+                                            {
+                                                isBarrierOpen = BreachBarrierSetModules(state, wall, enemyWallModules);
+                                                if (isBarrierOpen == false)
+                                                {
+                                                    if (enemyBarrierModules == null)
+                                                    {
+                                                        enemyBarrierModules = enemyWallModules.Where(m => m.Set == wall.Entity.Id).Select(s => s).ToList();
+                                                    }
+                                                    else
+                                                    {
+                                                        List<BarrierModule>? barrierModuleTemp = enemyWallModules.Where(m => m.Set == wall.Entity.Id).Select(s => s).ToList();
+                                                        if (barrierModuleTemp != null && barrierModuleTemp.Count() > 0)
+                                                        {
+                                                            enemyBarrierModules.AddRange(barrierModuleTemp);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            */ // NGE05292024 
                                         }
                                     }
                                 }
-                               
+
+                                /* // NGE05292024 
                                 if (isBarrierOpen == false && enemyBarrierModules != null)
                                 {
                                     foreach (var s in enemyBarrierModules) // NGE05222024 enemyWallModules) // if barrier module is near me attack it if it is not broken or the gate is open
@@ -3613,6 +3867,7 @@ namespace Bots
                                         }
                                     }
                                 }
+                                */ // NGE05292024 
 
                                 // Attack whatever is nearest to squad
                                 if (targetOrb != null && targetOrb.V != 0 && nearestOrbDistance <= nearestOpponentSquadDistance && nearestOrbDistance <= nearestWellDistance && nearestOrbDistance <= nearestOpponentBarrierDistance)
@@ -3878,7 +4133,8 @@ namespace Bots
                     {
                         if (b.Entity.PlayerEntityId == botState.myId)
                         {
-                            Position2D pos = new Position2D { X = wallPos.X - (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y - (wallPos.Y - botState.myStart.Y) / 2 };
+                            // How to find barrier module closest to attacking enemy in order to put the archer as close to enemy as possible?
+                            Position2D pos = new Position2D { X = wallPos.X - (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y - (wallPos.Y - botState.myStart.Y) / 2 }; // Center of Wall and starting orb
 
                             double distance = Math.Sqrt(DistanceSquared(wallPos, b.Entity.Position));
                             //string message = string.Format("distance:{0:0.0}", distance);
@@ -3987,6 +4243,23 @@ namespace Bots
             return wallsNearObs;
         }
 
+        public BarrierSet? GetWallNearOrb(List<BarrierSet> allWalls, TokenSlot orb)
+        {
+            float maxDistanceBetweenWallAndOrb = 15;
+
+            BarrierSet? wallsNearOb = null;
+            foreach (var w in allWalls)
+            {
+                float orbDistanceToWall = MathF.Sqrt(DistanceSquared(w.Entity.Position.To2D(), orb.Entity.Position.To2D()));
+
+                if (orbDistanceToWall < maxDistanceBetweenWallAndOrb)
+                {
+                    wallsNearOb = w;
+                }
+            }
+            return wallsNearOb;
+        }
+
         public List<BarrierSet>? GetWallsNearWells(List<BarrierSet> allWalls, List<PowerSlot> allWells)
         {
             float maxDistanceBetweenWallAndWell = 15;
@@ -4016,6 +4289,24 @@ namespace Bots
             }
             return wallsNearWells;
         }
+
+        public BarrierSet? GetWallNearWell(List<BarrierSet> allWalls, PowerSlot well)
+        {
+            float maxDistanceBetweenWallAndOrb = 15;
+
+            BarrierSet? wallsNearWell = null;
+            foreach (var w in allWalls)
+            {
+                float orbDistanceToWall = MathF.Sqrt(DistanceSquared(w.Entity.Position.To2D(), well.Entity.Position.To2D()));
+
+                if (orbDistanceToWall < maxDistanceBetweenWallAndOrb)
+                {
+                    wallsNearWell = w;
+                }
+            }
+            return wallsNearWell;
+        }
+
 
         private Command? BuildWells(float myPower, out float powerRemaining)
         {

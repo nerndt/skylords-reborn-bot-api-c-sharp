@@ -885,11 +885,11 @@ namespace Bots
             if (SUPPORTED_MAPS.Contains(map))
             {
                 return new[] {
-                    TopDeck, BattleGrounds, FireNature,
+                    PvPCardDecks.GiftedFlame, TopDeck, BattleGrounds, FireNature,
                     PvPCardDecks.TaintedDarkness, PvPCardDecks.GiftedDarkness, PvPCardDecks.BlessedDarkness, PvPCardDecks.InfusedDarkness,
                     PvPCardDecks.TaintedFlora, PvPCardDecks.GiftedFlora, PvPCardDecks.BlessedFlora, PvPCardDecks.InfusedFlora,
                     PvPCardDecks.TaintedIce, PvPCardDecks.GiftedIce, PvPCardDecks.BlessedIce, PvPCardDecks.InfusedIce,
-                    PvPCardDecks.TaintedFlame, PvPCardDecks.GiftedFlame, PvPCardDecks.BlessedFlame, PvPCardDecks.InfusedFlame,
+                    PvPCardDecks.TaintedFlame, PvPCardDecks.BlessedFlame, PvPCardDecks.InfusedFlame,
                  };
             }
             else

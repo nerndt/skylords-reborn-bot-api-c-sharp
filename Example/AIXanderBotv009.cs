@@ -146,7 +146,7 @@ namespace Bots
         int unitsNeededBeforeAttack = 1;
         int defaultTickUpdateRate = 1;
         int defaultAttackSquads = 4; // For now do not build more than X attack units
-        int defaultDefendSquads = 2; // For now do not build more than X defend units
+        int defaultDefendSquads = 4; // For now do not build more than X defend units
 
         bool buildNearbyWallAtStart = false;
         bool buildArcherOnWallAtStart = true;
@@ -3380,13 +3380,7 @@ namespace Bots
 
                                 float nearestWellDistance = float.MaxValue;
 
-                                if (attackSquadCount < defaultAttackSquads)
-                                {
-                                    //string message = string.Format("SpawnUnit Attack with {0} army < {1}", attackSquads.Count(), defaultAttackSquads);
-                                    //ConsoleWriteLine(true, message);
-                                    spawn = SpawnUnit(myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);
-                                }
-                                else if (myWalls.Count() > 0 && defendSquadCount < defaultDefendSquads)
+                                if (myWalls.Count() > 0 && defendSquadCount < defaultDefendSquads)
                                 {
                                     Position2D wallPos = myWalls[0].Entity.Position.To2D(); // Get nearest wall pos
                                     EntityId myWallId = myWalls[0].Entity.Id;
@@ -3413,6 +3407,12 @@ namespace Bots
                                             // NGE05122024!!!!!! return commands.ToArray();
                                         }
                                     }
+                                }
+                                else if (attackSquadCount < defaultAttackSquads)
+                                {
+                                    //string message = string.Format("SpawnUnit Attack with {0} army < {1}", attackSquads.Count(), defaultAttackSquads);
+                                    //ConsoleWriteLine(true, message);
+                                    spawn = SpawnUnit(myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);
                                 }
                                 else // Build more wells or orbs // NGE05222024!!!!!
                                 {

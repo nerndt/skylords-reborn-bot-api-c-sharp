@@ -21,11 +21,11 @@ namespace Bots
 {
     // /AI: list
     // Tainted Gifted Blessed Infused   Darkenss Flora Ice Flame GiftedFLora - all nature, BlessedIce - all frost, TaintedDarness - all shadow InfusedFlame - all fire
+    // /AI: add XanderAI GiftedFlame 4
     // /AI: add XanderAI TaintedFlora 4
     // /AI: add XanderAI GiftedIce 4
     // /AI: add XanderAI TopDeck 4
     // /AI: add XanderAI InfusedFlame 4
-    // /AI: add XanderAI GiftedFlame 4
     // Basic Strategies:
 
     /* // What UltraLord Does
@@ -137,7 +137,9 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.1";
+        string botVersion = "0.0.1.2";
+
+        bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
         string previousTargetMessage = string.Empty;
 
@@ -148,7 +150,7 @@ namespace Bots
         int unitsNeededBeforeAttack = 1;
         int defaultTickUpdateRate = 1;
         int defaultAttackSquads = 4; // For now do not build more than X attack units
-        int defaultDefendSquads = 2; // For now do not build more than X defend units
+        int defaultDefendSquads = 4; // For now do not build more than X defend units
 
         bool buildNearbyWallAtStart = false;
         bool buildArcherOnWallAtStart = true;
@@ -218,7 +220,7 @@ namespace Bots
         float nearestBarrierDistance = float.MaxValue; // Is there a wall by my first orb?
         float buildWallCost = 50f; // NGE05012024!!!!!! How can I get the cost to build the wall?
         float enemyNearOrbDistance = 200; // 170; // Distance to use to decide when to build a wall near my orb - 170 allowed swift squad to get to orb before I built wall
-        float engageEnemyNearOrbDistance = 50; // Distance to use to decide when to attack an enemy near my orb
+        float engageEnemyNearOrbDistance = 80; // Distance to use to decide when to attack an enemy near my orb
         float maxPowerToDoMore = 200;
 
         EntityId closestWall = new EntityId(0u);
@@ -504,7 +506,7 @@ namespace Bots
                 string message = string.Format("CommandProduceSquad CardPosition:{0} UnitPower:{1}", cardPosition, unitPower);
                 if (message != previousMessageSpawnUnit)
                 {
-                    ConsoleWriteLine(true, message);
+                    ConsoleWriteLine(consoleWriteline, message);
                 }
                 powerRemaining = myPower - unitPower;
 
@@ -536,7 +538,7 @@ namespace Bots
             if (myPower >= unitPower && botState.canPlayCardAt < tick)
             {
                 string message = string.Format("CommandProduceSquadOnBarrier CardPosition:{0} X,Y:{1},{2}", cardPosition, (int)pos.X, (int)pos.Y);
-                ConsoleWriteLine(true, message);
+                ConsoleWriteLine(consoleWriteline, message);
                 powerRemaining = myPower - unitPower;
 
                 botState.canPlayCardAt = uint.MaxValue; // NGE05222024!!!!! 
@@ -1079,7 +1081,7 @@ namespace Bots
                 if (myCurrentDeckOfficialCardIds.Ids[i] == (int)Api.CardTemplate.Wallbreaker)
                 {
                     wallBreakerCardPosition = i;
-                    ConsoleWriteLine(true, $"Deck has Wallbreaker spell at pos:{i}");
+                    ConsoleWriteLine(consoleWriteline, $"Deck has Wallbreaker spell at pos:{i}");
                     break;
                 }
             }
@@ -1171,7 +1173,7 @@ namespace Bots
             var yourPlayerId = state.YourPlayerId;
             var entities = state.Entities;
             botState.myId = yourPlayerId;
-            ConsoleWriteLine(true, $"My player ID is: {yourPlayerId}, I have deck: {botState.selectedDeck.Name}, and I own:");
+            ConsoleWriteLine(consoleWriteline, $"My player ID is: {yourPlayerId}, I have deck: {botState.selectedDeck.Name}, and I own:");
 #pragma warning disable CS8602 // Player must exist
             botState.myTeam = Array.Find(state.Players, p => p.Entity.Id == yourPlayerId).Entity.Team;
 #pragma warning restore CS8602
@@ -1195,7 +1197,7 @@ namespace Bots
             {
                 if (s.Entity.PlayerEntityId == yourPlayerId)
                 {
-                    ConsoleWriteLine(true, $"Well slot:{s.Entity.Id} at {(int)s.Entity.Position.X},{(int)s.Entity.Position.Z}");
+                    ConsoleWriteLine(consoleWriteline, $"Well slot:{s.Entity.Id} at {(int)s.Entity.Position.X},{(int)s.Entity.Position.Z}");
                     botState.myStart = s.Entity.Position.To2D();
                 }
                 //if (s.Entity.PlayerEntityId != null)
@@ -1225,7 +1227,7 @@ namespace Bots
                 List<EntityId> keyList = new List<EntityId>(team.Players.Keys);
                 foreach (EntityId p in keyList)
                 {
-                    ConsoleWriteLine(true, $"Team: {p} at {(int)team.Players[p].StartPos.X}:{(int)team.Players[p].StartPos.Y}");
+                    ConsoleWriteLine(consoleWriteline, $"Team: {p} at {(int)team.Players[p].StartPos.X}:{(int)team.Players[p].StartPos.Y}");
                 }
             }
             if (opponents != null)
@@ -1233,7 +1235,7 @@ namespace Bots
                 List<EntityId> keyList = new List<EntityId>(opponents.Players.Keys);
                 foreach (EntityId p in keyList)
                 {
-                    ConsoleWriteLine(true, $"Opponent: {p} at {(int)opponents.Players[p].StartPos.X}:{(int)opponents.Players[p].StartPos.Y}");
+                    ConsoleWriteLine(consoleWriteline, $"Opponent: {p} at {(int)opponents.Players[p].StartPos.X}:{(int)opponents.Players[p].StartPos.Y}");
                 }
             }
             */
@@ -1545,6 +1547,7 @@ namespace Bots
         public bool IsEnemyNearBase(float distanceFromBase, out List<Squad>? enemySquad)
         {
             enemySquad = null;
+            bool isEnemyNearBase = false;
             if (myOrbs.Count > 0)
             {
                 Position2D orbPos = myOrbs[0].Entity.Position.To2D();
@@ -1558,11 +1561,11 @@ namespace Bots
                             enemySquad = new List<Squad>();
                         }
                         enemySquad.Add(s);
-                        return true;
+                        isEnemyNearBase = true;
                     }
                 }
             }
-            return false;
+            return isEnemyNearBase;
         }
 
         public bool IsEnemyNearBase(float distanceFromBase, out PowerSlot? enemyOrb)
@@ -1949,6 +1952,40 @@ namespace Bots
 
         private Command? SpawnArcherOnBarrier(float myPower, Position2D pos, EntityId barrierModuleId, uint tick, ref float powerRemaining)
         {
+            /*
+             // Units on wall:
+             //   First i get all barriers i own and find out the gate, since you cant place units there
+                    std::vector < capi::Entity> myBarrier = entitiesTOentity(myId, state.entities.barrier_modules);
+                    capi::Position GatePos;
+                    //Remove Gate from Vector
+                    for (unsigned int i = 0; i < myBarrier.size() ;i++)
+                        for(auto A: myBarrier[i].aspects)
+                            if (A.variant_case == capi::AspectCase::BarrierGate)
+                            {
+                                GatePos = myBarrier[i].position;
+                                myBarrier.erase(myBarrier.begin() + i);
+                                goto GateLoopOut;
+                            }    
+                    GateLoopOut:
+                
+                
+            //    and then i loop over my units which are need the wall
+            //    Check if they are are "unmounted"
+            //    And if not send them on the wall with CommandGroupEnterWall
+                for (auto S : Bro->U->pointsInRadius(entitiesTOentity(myId, state.entities.squads), capi::to2D(myOrb.position), 50))
+                    for (auto A : S.aspects)
+                        if (A.variant_case == capi::AspectCase::MountBarrier)        
+                            if (A.variant_union.mount_barrier.state.variant_case == capi::MountStateCase::Unmounted)
+                            {
+                                capi::Entity A;
+                                capi::Entity B;
+                
+                                Bro->U->CloseCombi({ S }, myBarrier, A, B);
+                                vReturn.push_back(MIS_CommandGroupEnterWall({ S.id }, B.id));
+                            }
+
+             */
+
             if (archerCardPositions != null)
             {
                 byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
@@ -2047,7 +2084,7 @@ namespace Bots
 
             if (showTickMessage == true)
             {
-                ConsoleWriteLine(true, $"Tick:{currentTick} opp:{target} pow:{(int)myPower} size:{myArmy.Count} oSize:{theirArmy.Count} oPow:{theirArmy}");
+                ConsoleWriteLine(consoleWriteline, $"Tick:{currentTick} opp:{target} pow:{(int)myPower} size:{myArmy.Count} oSize:{theirArmy.Count} oPow:{theirArmy}");
             }
 
             List<Command> commands = new List<Command>();
@@ -2558,7 +2595,7 @@ namespace Bots
             if (myPower > 50f && botState.canPlayCardAt < tick) // 05222024 Changed from 100f to 50f !!!!!
             {
                 string message = string.Format("Build WallId:{0}", wallId.V);
-                ConsoleWriteLine(true, message);
+                ConsoleWriteLine(consoleWriteline, message);
                 Command command = new CommandBarrierBuild
                 {
                     BarrierId = wallId,
@@ -2583,14 +2620,15 @@ namespace Bots
                 string message = string.Format("Toggle WallId:{0} from open:{1} to open:{2}", wallId.V, open, !open);
                 if (message != previousToggleWallGateMessage)
                 {
-                    ConsoleWriteLine(true, message);
+                    ConsoleWriteLine(consoleWriteline, message);
+                } // NGE06282024 
                     Command command = new CommandBarrierGateToggle
                     {
                         BarrierId = wallId,
                     };
                     previousToggleWallGateMessage = message;
                     return command;
-                }
+                // } // NGE06282024 
             }
             return null;
         }
@@ -2734,6 +2772,7 @@ namespace Bots
             }
         }
 
+        private string previousToggleGateMessage = "";
         private Command? ToggleGate(bool open, uint tick)
         {
             foreach (var module in myWallModules)
@@ -3181,7 +3220,7 @@ namespace Bots
                             if (botState.isGameStart == true)
                             {
                                 string message = string.Format("{0} Strategy start", currentDeck.Name);
-                                ConsoleWriteLine(true, message);
+                                ConsoleWriteLine(consoleWriteline, message);
                             }
 
                             #region Buid/Rebuild Orb if none exist!
@@ -3377,7 +3416,7 @@ namespace Bots
                                             {
                                                 openGate = true;
                                                 string message = string.Format("SquadId{0} still inside, so open gate!", squad.Entity.Id);
-                                                ConsoleWriteLine(true, message);
+                                                ConsoleWriteLine(consoleWriteline, message);
                                                 break;
                                             }
                                         }
@@ -3554,15 +3593,37 @@ namespace Bots
 
                                 float nearestWellDistance = float.MaxValue;
 
-                                if (attackSquadCount < defaultAttackSquads || myPower > maxPowerToDoMore)
+                                // NGE05232024 Below !!!!!!
+                                // if (isEnemyNearBase == false) // NGE06282024 
                                 {
-                                    //string message = string.Format("SpawnUnit Attack with {0} army < {1}", attackSquads.Count(), defaultAttackSquads);
-                                    //ConsoleWriteLine(true, message);
-                                    spawn = SpawnUnit(myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);
+                                    isEnemyNearBase = IsEnemyNearBase(100f, out List<Squad> enemySquadAttackingNearBase); // 75 seems to include nearby well or orb
+                                    if (isEnemyNearBase == true)
+                                    {
+                                        enemyAttackingSquads = enemySquadAttackingNearBase;
+                                    }
                                 }
-                                else if (myWalls.Count() > 0 && defendSquadCount < defaultDefendSquads || 
-                                        (enemyAttackingSquads != null && enemyAttackingSquads.Count() > defendSquadCount))
+                                if (isEnemyNearBase == false) // NGE06282024  // else
                                 {
+                                    enemyAttackingSquads = null;
+                                    isEnemyNearBase = false;
+                                }
+                                // NGE05232024 Above !!!!!!
+
+                                // NGE06252024!!!!!! If there are more enemies than defenders, create more defenders
+                                // NGE06252024!!!!!! if ((myWalls != null && myWalls.Count() > 0) && defendSquadCount < defaultDefendSquads ||
+                                // NGE06252024!!!!!!     (enemyAttackingSquads != null && enemyAttackingSquads.Count() > defendSquadCount))
+                                if ((myWalls != null && myWalls.Count() > 0) && defendSquadCount < defaultDefendSquads ||
+                                    (enemyAttackingSquads != null && enemyAttackingSquads.Count() > defendSquadCount))
+                                // NGE06252024 OKAY if ((myWalls != null && myWalls.Count() > 0) && defendSquadCount < defaultDefendSquads)
+                                {
+                                    string message = string.Format("defendSquadCount={0} defaultDefendSquads={1}", defendSquadCount, defaultDefendSquads);
+                                    //ConsoleWriteLine(true, message); // ConsoleWriteLine(consoleWriteline, message);
+                                    if ((enemyAttackingSquads != null && enemyAttackingSquads.Count() > defendSquadCount))
+                                    {
+                                        message = string.Format("enemyAttackingSquads={0}", enemyAttackingSquads.Count());
+                                        //ConsoleWriteLine(true, message); // ConsoleWriteLine(consoleWriteline, message);
+                                    }
+
                                     Position2D wallPos = myWalls[0].Entity.Position.To2D(); // Get nearest wall pos
                                     EntityId myWallId = myWalls[0].Entity.Id;
                                     //spawn = SpawnArcherOnBarrier(myArmy, myPower, botState.myStart, myWallId, unitPower, currentTick.V); // wallPos
@@ -3585,12 +3646,18 @@ namespace Bots
                                         if (commandSpawnArcherOnWall != null)
                                         {
                                             commands.Add(commandSpawnArcherOnWall);
-                                            // NGE05122024!!!!!! return commands.ToArray();
+                                            return commands.ToArray();// NGE05122024!!!!!! return commands.ToArray();
                                         }
                                     }
                                 }
+                                else if (attackSquadCount < defaultAttackSquads || myPower > maxPowerToDoMore)
+                                {
+                                    //string message = string.Format("SpawnUnit Attack with {0} army < {1}", attackSquads.Count(), defaultAttackSquads);
+                                    //ConsoleWriteLine(consoleWriteline, message);
+                                    spawn = SpawnUnit(myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);
+                                }
                                 else // Build more wells or orbs // NGE05222024!!!!!
-                                {                                    
+                                {
                                     if (myWalls.Count() > 0 && myDefendSquads != null && myDefendSquads.Count() > 0) // Make sure archers are on walls if near them!
                                     {
                                         //archerSquad
@@ -3641,18 +3708,26 @@ namespace Bots
                                     }
                                 }
 
-                                // NGE05232024 Below !!!!!!
-                                if (isEnemyNearBase == false)
-                                {
-                                    isEnemyNearBase = IsEnemyNearBase(75f, out List<Squad> enemySquadAttackingNearBase); // 75 seems to include nearby well or orb
-                                    enemyAttackingSquads = enemySquadAttackingNearBase;
-                                }
-                                else
-                                {
-                                    enemyAttackingSquads = null;
-                                    isEnemyNearBase = false;
-                                }
-                                // NGE05232024 Above !!!!!!
+                                //// NGE05232024 Below !!!!!!
+                                //// if (isEnemyNearBase == false) // NGE06282024 
+                                //{
+                                //    isEnemyNearBase = IsEnemyNearBase(100f, out List<Squad> enemySquadAttackingNearBase); // 75 seems to include nearby well or orb
+                                //    enemyAttackingSquads = enemySquadAttackingNearBase;
+                                //}
+                                //if (isEnemyNearBase == false) // NGE06282024  // else
+                                //{
+                                //    enemyAttackingSquads = null;
+                                //    isEnemyNearBase = false;
+                                //}
+                                //// NGE05232024 Above !!!!!!
+
+                                // NGE06252024 if (enemyAttackingSquads != null && enemyAttackingSquads.Count() > 0)
+                                // NGE06252024 {
+                                // NGE06252024     // if (defaultDefendSquads < enemyAttackingSquads.Count())
+                                // NGE06252024     {
+                                // NGE06252024         defaultDefendSquads = Math.Max(defaultDefendSquads, enemyAttackingSquads.Count());
+                                // NGE06252024     }
+                                // NGE06252024 }
 
                                 /* // NGE05232024 !!!!!!
                                 #region // If an enemy squad is a certain distance from my main orb, attack it!
@@ -4131,16 +4206,17 @@ namespace Bots
                     Command? spawnOnBarrier = null;
                     foreach (var b in barrierModules)
                     {
-                        if (b.Entity.PlayerEntityId == botState.myId)
+                        var gateAspect = b.Entity.Aspects.FirstOrDefault(g => g.BarrierGate != null) ?? null;
+                        if (b.Entity.PlayerEntityId == botState.myId && gateAspect == null) // When gateAspect == null then it is not a gate
                         {
                             // How to find barrier module closest to attacking enemy in order to put the archer as close to enemy as possible?
                             Position2D pos = new Position2D { X = wallPos.X - (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y - (wallPos.Y - botState.myStart.Y) / 2 }; // Center of Wall and starting orb
 
                             double distance = Math.Sqrt(DistanceSquared(wallPos, b.Entity.Position));
                             //string message = string.Format("distance:{0:0.0}", distance);
-                            //ConsoleWriteLine(true, message);
+                            //ConsoleWriteLine(consoleWriteline, message);
 
-                            if (b.FreeSlots >= 6 && myPower >= unitPower && botState.canPlayCardAt < currentTick && distance < 15)
+                            if (b.FreeSlots >= 6 && myPower >= unitPower && botState.canPlayCardAt < currentTick && distance < 15) // NGE06282024 !!!!!!!!!
                             {
                                 spawnOnBarrier = SpawnArcherOnBarrier(myPower, b.Entity.Position.To2D(), b.Entity.Id, currentTick, ref myPower);
                                 if (spawnOnBarrier != null)
@@ -4326,7 +4402,7 @@ namespace Bots
                             if (powerRemaining >= 150) // 150 should depend on how many orbs I have
                             {
                                 powerRemaining -= 150; // 150 should depend on how many orbs I have
-                                ConsoleWriteLine(true, "Build Well");
+                                ConsoleWriteLine(consoleWriteline, "Build Well");
                                 //tasks.buildNearbyWell = true;
                                 return new CommandPowerSlotBuild
                                 {
@@ -4358,7 +4434,7 @@ namespace Bots
                             if (powerRemaining >= 150) // 150 should depend on how many orbs I have
                             {
                                 powerRemaining -= 150; // 150 should depend on how many orbs I have
-                                ConsoleWriteLine(true, "Build Orb");
+                                ConsoleWriteLine(consoleWriteline, "Build Orb");
                                 //tasks.buildNearbyOrb = true;
                                 return new CommandTokenSlotBuild
                                 {
@@ -4472,7 +4548,7 @@ namespace Bots
             if (!tasks.swiftclawTasks.produceSwiftclaw && myPower >= 70 && botState.canPlayCardAt < tick)
             {
                 botState.canPlayCardAt = uint.MaxValue;
-                ConsoleWriteLine(true, "produce swiftclaw");
+                ConsoleWriteLine(consoleWriteline, "produce swiftclaw");
                 tasks.swiftclawTasks.produceSwiftclaw = true;
                 return new CommandProduceSquad
                 {
@@ -4487,7 +4563,7 @@ namespace Bots
                 if (swiftclaw != null)
                 {
                     tasks.swiftclawTasks.swiftclaw = swiftclaw.Entity.Id;
-                    ConsoleWriteLine(true, $"Swiftclaw = {swiftclaw.Entity.Id}");
+                    ConsoleWriteLine(consoleWriteline, $"Swiftclaw = {swiftclaw.Entity.Id}");
                     // We found him, but give him a task on next tick
                 }
                 return null;
@@ -4497,7 +4573,7 @@ namespace Bots
                 var swiftclaw = entities.Squads.FirstOrDefault(s => s.Entity.Id == tasks.swiftclawTasks.swiftclaw);
                 if (swiftclaw == null)
                 {
-                    ConsoleWriteLine(true, "Swiftclaw was killed");
+                    ConsoleWriteLine(consoleWriteline, "Swiftclaw was killed");
                     // Swiftclaw was killed, give up on this task set
                     tasks.done = true;
                     return null;
@@ -4509,7 +4585,7 @@ namespace Bots
                     {
                         botState.canPlayCardAt = uint.MaxValue;
                         tasks.swiftclawTasks.buildPrimalDefender = true;
-                        ConsoleWriteLine(true, "Build Primal Defender");
+                        ConsoleWriteLine(consoleWriteline, "Build Primal Defender");
                         return new CommandBuildHouse
                         {
                             CardPosition = 4,
@@ -4522,7 +4598,7 @@ namespace Bots
                     {
                         if (myPower >= 150)
                         {
-                            ConsoleWriteLine(true, "Token slot build");
+                            ConsoleWriteLine(consoleWriteline, "Token slot build");
                             tasks.swiftclawTasks.buildTokenSlot = true;
                             return new CommandTokenSlotBuild
                             {
@@ -4533,7 +4609,7 @@ namespace Bots
                         else if (!tasks.swiftclawTasks.holdPosition)
                         {
                             tasks.swiftclawTasks.holdPosition = true;
-                            ConsoleWriteLine(true, "Swiftclaw hold position");
+                            ConsoleWriteLine(consoleWriteline, "Swiftclaw hold position");
                             return new CommandGroupHoldPosition
                             {
                                 Squads = new[] { tasks.swiftclawTasks.swiftclaw }
@@ -4550,7 +4626,7 @@ namespace Bots
                     {
                         if (myPower >= 100)
                         {
-                            ConsoleWriteLine(true, "Power slot build");
+                            ConsoleWriteLine(consoleWriteline, "Power slot build");
                             tasks.swiftclawTasks.buildPowerSlot = true;
                             return new CommandPowerSlotBuild
                             {
@@ -4560,7 +4636,7 @@ namespace Bots
                         else if (!tasks.swiftclawTasks.holdPosition)
                         {
                             tasks.swiftclawTasks.holdPosition = true;
-                            ConsoleWriteLine(true, "Swiftclaw hold position");
+                            ConsoleWriteLine(consoleWriteline, "Swiftclaw hold position");
                             return new CommandGroupHoldPosition
                             {
                                 Squads = new[] { tasks.swiftclawTasks.swiftclaw }
@@ -4577,7 +4653,7 @@ namespace Bots
                         if (!tasks.swiftclawTasks.holdPosition)
                         {
                             tasks.swiftclawTasks.holdPosition = true;
-                            ConsoleWriteLine(true, "Swiftclaw hold position");
+                            ConsoleWriteLine(consoleWriteline, "Swiftclaw hold position");
                             return new CommandGroupHoldPosition
                             {
                                 Squads = new[] { tasks.swiftclawTasks.swiftclaw }
@@ -4586,7 +4662,7 @@ namespace Bots
                         else if (!tasks.swiftclawTasks.changeMode)
                         {
                             tasks.swiftclawTasks.changeMode = true;
-                            ConsoleWriteLine(true, "Swiftclaw change mode");
+                            ConsoleWriteLine(consoleWriteline, "Swiftclaw change mode");
                             return new CommandModeChange
                             {
                                 EntityId = tasks.swiftclawTasks.swiftclaw,
@@ -4595,7 +4671,7 @@ namespace Bots
                         }
                         else
                         {
-                            ConsoleWriteLine(true, "Swiftclaw done");
+                            ConsoleWriteLine(consoleWriteline, "Swiftclaw done");
                             tasks.done = true;
                             return null;
                         }
@@ -4611,7 +4687,7 @@ namespace Bots
                         }
                         else
                         {
-                            ConsoleWriteLine(true, "Swiftclaw Patrol");
+                            ConsoleWriteLine(consoleWriteline, "Swiftclaw Patrol");
                             return new CommandGroupGoto
                             {
                                 Squads = new[] { tasks.swiftclawTasks.swiftclaw },

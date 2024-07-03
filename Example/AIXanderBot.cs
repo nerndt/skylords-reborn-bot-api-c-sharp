@@ -137,7 +137,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.2";
+        string botVersion = "0.0.1.3";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -202,6 +202,8 @@ namespace Bots
         List<Building> enemyBuildings = new List<Building>(); // Array.FindAll(state.Entities.Building, x => x.Entity.PlayerEntityId == botState.myId).ToList();
         List<Squad> enemySquads = new List<Squad>(); // Array.FindAll(state.Entities.Squads, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId))).ToList();
         List<EntityId> enemyUnits = new List<EntityId>();
+
+        object enemySquadsLock = new object(); // Puts a lock around enemySquads while checking them
 
         List<TokenSlot> emptyOrbs = new List<TokenSlot>(); // Array.FindAll(state.Entities.TokenSlots, x => x.Entity.PlayerEntityId == null).ToList();
         List<PowerSlot> emptyWells = new List<PowerSlot>(); // Array.FindAll(state.Entities.PowerSlots, x => x.Entity.PlayerEntityId == null).ToList();
@@ -1373,13 +1375,17 @@ namespace Bots
             float d;
             float enemyDistanceSq = float.MaxValue;
             nearestEnemy = null;
-            foreach (var s in enemySquads)
+            
+            lock (enemySquadsLock)
             {
-                d = DistanceSquared(pos, s.Entity.Position);
-                if (enemyDistanceSq > d) // Closest empty wall 
+                foreach (var s in enemySquads)
                 {
-                    enemyDistanceSq = d;
-                    nearestEnemy = s;
+                    d = DistanceSquared(pos, s.Entity.Position);
+                    if (enemyDistanceSq > d) // Closest empty wall 
+                    {
+                        enemyDistanceSq = d;
+                        nearestEnemy = s;
+                    }
                 }
             }
             enemyDistance = MathF.Sqrt(enemyDistanceSq);

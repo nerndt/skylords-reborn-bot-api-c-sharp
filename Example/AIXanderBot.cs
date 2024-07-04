@@ -137,7 +137,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.3";
+        string botVersion = "0.0.1.4";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -1159,7 +1159,17 @@ namespace Bots
             currentDeck = myDecks.FirstOrDefault(d => d.Name == deckName);
             if (currentDeck != null)
             {
-                return SendCommands(state, (Deck)currentDeck);
+                Command[] tempCommands = SendCommands(state, (Deck)currentDeck);
+                if (botState.canPlayCardAt == uint.MaxValue && tempCommands.Length == 0)
+                {
+                    var player = Array.Find(state.Players, p => p.Id == botState.myId);
+                    if (player == null) { return commands.ToArray(); }
+                    var myPower = player.Power;
+                    ConsoleWriteLine(true, $"Tick {state.CurrentTick} commands: {tempCommands.Length} myPower: {(int)myPower} botState.canPlayCardAt == uint.MaxValue");
+                    botState.canPlayCardAt = 0; // NGE07042024 Reset the timer to try and continue
+                }
+                return tempCommands;
+                // NGE07042024 return SendCommands(state, (Deck)currentDeck);
             }
             return commands.ToArray();
         }
@@ -2340,9 +2350,23 @@ namespace Bots
                         nearestOrbPosition = s.Entity.Position.To2D();
                     }
                 }
-                if (myPower > orbCost && MathF.Sqrt(DistanceSquared(pos, nearestOrbPosition)) < 15) // Close enough to build orb
+                // See if enemyAttackingSquads are near orb
+                bool enemyNearOrb = false;
+                if (enemyAttackingSquads != null && enemyAttackingSquads.Count() > 0)
                 {
-                    string message = string.Format("Build nearest OrbId:{0} at pos:{1},{2}", nearestOrb, (int)nearestOrbPosition.X, (int)nearestOrbPosition.Y);
+                    foreach (var s in enemyAttackingSquads)
+                    { 
+                        if (MathF.Sqrt(DistanceSquared(s.Entity.Position.To2D(), nearestOrbPosition)) < 15)
+                        {
+                            enemyNearOrb = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (myPower > orbCost && MathF.Sqrt(DistanceSquared(pos, nearestOrbPosition)) < 15 && enemyNearOrb == false) // Close enough to build orb and no enemy units by orb!
+                {
+                    string message = string.Format("Build nearest OrbId:{0} at pos:{1},{2} with Power:{3}", nearestOrb, (int)nearestOrbPosition.X, (int)nearestOrbPosition.Y, (int)myPower);
                     if (message != previousBuildNearestOrbByPosMessage)
                     {
                         Console.WriteLine(message);
@@ -2471,7 +2495,20 @@ namespace Bots
                         nearestWellPosition = s.Entity.Position.To2D();
                     }
                 }
-                if (myPower > wellCost && MathF.Sqrt(DistanceSquared(pos, nearestWellPosition)) < 15) // Close enough to build well
+                // See if enemyAttackingSquads are near well
+                bool enemyNearWell = false;
+                if (enemyAttackingSquads != null && enemyAttackingSquads.Count() > 0)
+                {
+                    foreach (var s in enemyAttackingSquads)
+                    {
+                        if (MathF.Sqrt(DistanceSquared(s.Entity.Position.To2D(), nearestWellPosition)) < 15)
+                        {
+                            enemyNearWell = true;
+                            break;
+                        }
+                    }
+                }
+                if (myPower > wellCost && MathF.Sqrt(DistanceSquared(pos, nearestWellPosition)) < 15 && enemyNearWell == false) // Close enough to build well
                 {
                     string message = string.Format("Build nearest WellId:{0} at pos:{1},{2}", nearestWell, (int)nearestWellPosition.X, (int)nearestWellPosition.Y);
                     if (message != previousBuildNearestWellMessage)
@@ -2763,6 +2800,7 @@ namespace Bots
                                 Console.WriteLine(message);
                                 presviousRejectedCommandMessage = message;
                             }
+                            botState.canPlayCardAt = 0; // NGE07042024 Reset the timer to try and continue
                         }
                         else
                         {
@@ -2869,6 +2907,24 @@ namespace Bots
                     }
                 }
             }
+        }
+
+        public Command[] TickBebug(GameState state)
+        {
+            Command[] commands = null;
+            string deckName = botState.selectedDeck.Name;
+            currentDeck = myDecks.FirstOrDefault(d => d.Name == deckName);
+            if (currentDeck != null)
+            {
+                commands = SendCommands(state, (Deck)currentDeck);
+            }
+            else
+            {
+                commands = Array.Empty<Command>();
+            }
+
+            ConsoleWriteLine(true, $"Tick {state.CurrentTick} commands: {commands.Length}");
+            return commands;
         }
 
         public Command[] SendCommands(GameState state, Deck currentDeck)
@@ -3235,8 +3291,44 @@ namespace Bots
                                 Command? cmd = BuildNearestOrbByPos(myPower, out myPower, botState.myStart, orbColorBuildOrder[0], currentTick.V, out bool orbBuilt);
                                 if (cmd != null)
                                 {
+                                    ConsoleWriteLine(true, $"Build/Rebuild orb at botState.myStart Pos: {(int)botState.myStart.X},{(int)botState.myStart.Y} with Power:{(int)myPower}");
                                     commands.Add(cmd);
-                                    return commands.ToArray();
+                                    if (myPower < 150)
+                                    {
+                                        return commands.ToArray();
+                                    }
+                                }
+                                if (myPower >= 150) // Try to build an orb by a nearby well
+                                {
+                                    if (myWells.Count > 0)
+                                    {
+                                        //int counter = myWells.Count - 1;
+                                        //for (int i = counter; i >= 0; i--) // Start with last well made since probably farthest away
+                                        //{
+                                        //    PowerSlot well = myWells[i];
+                                        //    Command? cmdNewOrb = BuildNearestOrbByPos(myPower, out myPower, well.Entity.Position.To2D(), orbColorBuildOrder[0], currentTick.V, out bool orbBuiltNew);
+                                        //    if (cmdNewOrb != null)
+                                        //    {
+                                        //        ConsoleWriteLine(true, $"Building new orb by wellID {well.Entity.Id} Pos: {(int)well.Entity.Position.To2D().X},{(int)well.Entity.Position.To2D().Y} with Power:{(int)myPower}");
+                                        //        commands.Add(cmdNewOrb);
+                                        //        return commands.ToArray();
+                                        //    }
+                                        //}
+                                        foreach (var well in myWells)
+                                        {
+                                            Command? cmdNewOrb = BuildNearestOrbByPos(myPower, out myPower, well.Entity.Position.To2D(), orbColorBuildOrder[0], currentTick.V, out bool orbBuiltNew);
+                                            if (cmdNewOrb != null)
+                                            {
+                                                ConsoleWriteLine(true, $"Building new orb by wellID {well.Entity.Id} Pos: {(int)well.Entity.Position.To2D().X},{(int)well.Entity.Position.To2D().Y} with Power:{(int)myPower}");
+                                                commands.Add(cmdNewOrb);
+                                                // NGE07042024 return commands.ToArray();
+                                            }
+                                        }
+                                        if (commands.Count() > 0) // NGE07042024 
+                                        {
+                                            return commands.ToArray();
+                                        }
+                                    }
                                 }
                             }
                             #endregion Buid/Rebuild Orb if none exist!
@@ -3980,37 +4072,6 @@ namespace Bots
                                     targetEntity = targetEntityWall;
                                     targetType = "Barrier";
                                 }
-                                if (previousTarget != target || previousTarget.V == 0)
-                                {
-                                    if (previousTargets.Count > 0)
-                                    {
-                                        if (previousTargets[0].Id != target && currentTick.V % defaultTickUpdateRate == 0)
-                                        {
-                                            string message = string.Format("Target:{0} Type:{1} Previous Target:{2} Type:{3}", target.V, targetType, previousTargets[0].Id.V, previousTargetTypes[0]);
-                                            if (message != previousTargetMessage)
-                                                Console.WriteLine(message);
-
-                                            previousTargetMessage = message;
-
-                                            if (targetEntity != null && targetType != null)
-                                            {
-                                                previousTargets.Insert(0, targetEntity);
-                                                previousTargetTypes.Insert(0, targetType);
-                                            }
-                                        }
-
-                                    }
-                                    else
-                                    {
-                                        //if (currentTick.V % defaultTickUpdateRate == 0)
-                                        //    Console.WriteLine("Target:{0} Type:{1}", target.V, targetType);
-                                        if (targetEntity != null && targetType != null)
-                                        {
-                                            previousTargets.Insert(0, targetEntity);
-                                            previousTargetTypes.Insert(0, targetType);
-                                        }
-                                    }
-                                }
                                 if (target.V == 0)
                                 {
                                     var orb = enemyOrbs.Where(o => o.Entity.Id.V != 0).FirstOrDefault();
@@ -4060,6 +4121,38 @@ namespace Bots
                                     else if (enemyWallModules.Count() > 0)
                                     {
                                         target = enemyWallModules[0].Entity.Id;
+                                    }
+                                }
+
+                                if (previousTarget != target || previousTarget.V == 0)
+                                {
+                                    if (previousTargets.Count > 0)
+                                    {
+                                        if (previousTargets[0].Id != target && currentTick.V % defaultTickUpdateRate == 0)
+                                        {
+                                            string message = string.Format("Target:{0} Type:{1} Previous Target:{2} Type:{3}", target.V, targetType, previousTargets[0].Id.V, previousTargetTypes[0]);
+                                            if (message != previousTargetMessage)
+                                                Console.WriteLine(message);
+
+                                            previousTargetMessage = message;
+
+                                            if (targetEntity != null && targetType != null)
+                                            {
+                                                previousTargets.Insert(0, targetEntity);
+                                                previousTargetTypes.Insert(0, targetType);
+                                            }
+                                        }
+
+                                    }
+                                    else
+                                    {
+                                        //if (currentTick.V % defaultTickUpdateRate == 0)
+                                        //    Console.WriteLine("Target:{0} Type:{1}", target.V, targetType);
+                                        if (targetEntity != null && targetType != null)
+                                        {
+                                            previousTargets.Insert(0, targetEntity);
+                                            previousTargetTypes.Insert(0, targetType);
+                                        }
                                     }
                                 }
 

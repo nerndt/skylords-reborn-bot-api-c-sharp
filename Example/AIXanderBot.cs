@@ -28,6 +28,12 @@ namespace Bots
     // /AI: add XanderAI InfusedFlame 4
     // Basic Strategies:
 
+    /*
+     07292024 Currently the bot should start with 
+     "/AI: add XanderAI GiftedFlame 4" or "/AI: add XanderAI GiftedFlame 1" and will make a scavenger first and go to nearest well and make well.  It will then make 
+    another scavenger.  If the opponent gets more than halfway over te map to my orb I then make a wall and put 4 archers on the wall to defend.
+     */
+
     /* // What UltraLord Does
      ##########################################################
      # Where do i get the json
@@ -137,7 +143,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.4";
+        string botVersion = "0.0.1.5";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 

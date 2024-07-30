@@ -7,7 +7,7 @@ namespace Api
 {
     public static class ApiVersion
     {
-        public const UInt64 VERSION = 21;
+        public const UInt64 VERSION = 22;
     }
     public enum Upgrade
     {

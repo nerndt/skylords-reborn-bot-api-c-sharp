@@ -43,7 +43,7 @@ namespace Bots
      */
     public class AIXanderBot2 : IAspWrapperImpl
     {
-        string IAspWrapperImpl.Name => "XanderAI";
+        string IAspWrapperImpl.Name => "XanderAIBot2";
 
         private readonly Maps[] SUPPORTED_MAPS = new[] {
                     Maps.HaladurSpectator,

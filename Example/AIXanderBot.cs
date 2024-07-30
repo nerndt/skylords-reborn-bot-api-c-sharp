@@ -143,7 +143,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.5";
+        string botVersion = "0.0.1.6";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 

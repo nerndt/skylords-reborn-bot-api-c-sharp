@@ -143,7 +143,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.6";
+        string botVersion = "0.0.1.7";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -153,8 +153,8 @@ namespace Bots
 
         int unitPower = 75; // Power needed to build a specific game card
 
-        int unitsNeededBeforeAttack = 1;
-        int defaultTickUpdateRate = 1;
+        int unitsNeededBeforeAttack = 6;
+        int defaultTickUpdateRate = 2;
         int defaultAttackSquads = 4; // For now do not build more than X attack units
         int defaultDefendSquads = 4; // For now do not build more than X defend units
 

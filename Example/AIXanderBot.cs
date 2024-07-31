@@ -143,7 +143,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.8";
+        string botVersion = "0.0.1.9";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -4331,7 +4331,7 @@ namespace Bots
                                 {
                                     if (previousTarget != target && previousSquadCount != squads.Count())
                                     {
-                                        string msg = string.Format($"Tick: {currentTick} Target:{target} My Power:{(int)myPower} Squads:{squads.Count()} Enemy Squads:{enemySquads.Count()}");
+                                        string msg = string.Format("Tick: {0} Target:{1} My Power:{2} Squads:{3} Enemy Squads:{4}", currentTick, target, (int)myPower, squads.Count(), enemySquads.Count());
                                         ConsoleWriteLine(consoleWriteline, msg);
                                     }
                                 }

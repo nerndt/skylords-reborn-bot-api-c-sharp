@@ -143,7 +143,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.1.7";
+        string botVersion = "0.0.1.8";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -153,7 +153,7 @@ namespace Bots
 
         int unitPower = 75; // Power needed to build a specific game card
 
-        int unitsNeededBeforeAttack = 6;
+        int unitsNeededBeforeAttack = 4;
         int defaultTickUpdateRate = 2;
         int defaultAttackSquads = 4; // For now do not build more than X attack units
         int defaultDefendSquads = 4; // For now do not build more than X defend units
@@ -246,6 +246,8 @@ namespace Bots
         Position2D previousAttackPos = Position2DExt.Zero();
         int previousSquadCount = 0;
 
+        TokenSlot? startingOrb = null;
+
         /// <summary>
         /// // This dictates what to build when in the process during the PvP battle
         /// </summary>
@@ -274,7 +276,8 @@ namespace Bots
                 squadSize = squad.Figures.Length;
                 if (squads.Count < unitsNeededBeforeAttack)
                 {
-                    Console.WriteLine("Army must have {0} squads to attack. Army has {1} squads", unitsNeededBeforeAttack, squads.Count);
+                    string msg = string.Format("Army must have {0} squads to attack. Army has {1} squads", unitsNeededBeforeAttack, squads.Count);
+                    ConsoleWriteLine(consoleWriteline, msg);
                     return null;
                 }
             }
@@ -428,6 +431,93 @@ namespace Bots
             }
         }
 
+        public Command? OpenGateWhenNeeded(Tick currentTick)
+        {
+            Command? cmd = null;
+            if (myAttackSquads != null && myAttackSquads.Count() > 0 && myWalls.Count() > 0)
+            {
+                #region Open Gate when appropriate
+                // If gate is closed and any attack squads are inside gate, open it
+                {
+                    Position2D wallPos = myWalls[0].Entity.Position.To2D();
+                    Position2D wallPosInt = new Position2D { X = (int)wallPos.X, Y = (int)wallPos.Y };
+
+                    Position2D orbPos = startingOrb.Entity.Position.To2D(); // myOrbs[0].Entity.Position.To2D();
+                    
+                    // Position2D orbPosInt = new Position2D { X = (int)myOrbs[0].Entity.Position.X, Y = (int)myOrbs[0].Entity.Position.Y };
+                    Position2D orbPosInt = new Position2D { X = (int)startingOrb.Entity.Position.X, Y = (int)startingOrb.Entity.Position.Y };
+                    Position2D mySqadPos = new Position2D { X = 0, Y = 0 };
+                    Position2D mySqadPosInt = new Position2D { X = 0, Y = 0 };
+
+                    bool openGate = false;
+                    foreach (var squad in myAttackSquads)
+                    {
+                        mySqadPos = squad.Entity.Position.To2D();
+                        mySqadPosInt = new Position2D { X = (int)mySqadPos.X, Y = (int)mySqadPos.Y };
+                        // Squad is between orb and wall
+                        if (mySqadPosInt != wallPos && mySqadPosInt != orbPosInt &&
+                            mySqadPosInt.X >= Math.Min(orbPosInt.X, wallPosInt.X) && mySqadPosInt.X <= Math.Max(orbPosInt.X, wallPosInt.X) &&
+                            mySqadPosInt.Y >= Math.Min(orbPosInt.Y, wallPosInt.Y) && mySqadPosInt.Y <= Math.Max(orbPosInt.Y, wallPosInt.Y))
+                        {
+                            openGate = true;
+                            string message = string.Format("SquadId{0} still inside, so open gate!", squad.Entity.Id);
+                            ConsoleWriteLine(consoleWriteline, message);
+                            break;
+                        }
+                    }
+
+                    if (openGate == true)
+                    {
+                        cmd = ToggleGate(true, currentTick.V);
+                        //if (cmd != null)
+                        //{
+                        //    commands.Add(cmd); // return new Command[] { cmd };
+                        //}
+                    }
+                }
+                #endregion Open Gate when appropriate
+
+                #region Close Gate when appropriate
+                // If gate is open and all squads are outside gate, close it
+                {
+                    // Turn all positions to int
+                    Position2D wallPos = myWalls[0].Entity.Position.To2D();
+                    Position2D wallPosInt = new Position2D { X = (int)wallPos.X, Y = (int)wallPos.Y };
+                    Position2D orbPos = myOrbs[0].Entity.Position.To2D();
+                    Position2D orbPosInt = new Position2D { X = (int)orbPos.X, Y = (int)orbPos.Y };
+                    Position2D mySqadPos = new Position2D { X = 0, Y = 0 };
+                    Position2D mySqadPosInt = new Position2D { X = 0, Y = 0 };
+
+                    bool closeGate = true;
+                    foreach (var squad in myAttackSquads)
+                    {
+                        mySqadPos = squad.Entity.Position.To2D();
+                        mySqadPosInt = new Position2D { X = (int)mySqadPos.X, Y = (int)mySqadPos.Y };
+                        // Squad is NOT between orb and wall
+                        if (mySqadPosInt != wallPos && mySqadPosInt != orbPosInt &&
+                            mySqadPosInt.X >= Math.Min(orbPosInt.X, wallPosInt.X) && mySqadPosInt.X <= Math.Max(orbPosInt.X, wallPosInt.X) &&
+                            mySqadPosInt.Y >= Math.Min(orbPosInt.Y, wallPosInt.Y) && mySqadPosInt.Y <= Math.Max(orbPosInt.Y, wallPosInt.Y))
+                        {
+                            closeGate = false;
+                            break;
+                        }
+                    }
+
+                    if (closeGate == true)
+                    {
+                        cmd = ToggleGate(false, currentTick.V);
+                        //if (cmd != null)
+                        //{
+                        //    commands.Add(cmd); // return new Command[] { cmd };
+                        //}
+                    }
+                }
+                #endregion Close Gate when appropriate
+
+            }
+            return cmd;
+        }
+
         string previousMessageAttackType = "";
         private Command? Attack(EntityId target, string targetType, List<Squad> squads, Position2D pos, int unitsNeededBeforeAttack)
         {
@@ -438,7 +528,8 @@ namespace Bots
                 squadSize = squad.Figures.Length;
                 if (squads.Count < unitsNeededBeforeAttack)
                 {
-                    Console.WriteLine("Army must have {0} squads to attack. Army has {1} squads", unitsNeededBeforeAttack, squads.Count);
+                    string msg = string.Format("Army must have {0} squads to attack. Army has {1} squads", unitsNeededBeforeAttack, squads.Count);
+                    ConsoleWriteLine(consoleWriteline, msg);
                     return null;
                 }
             }
@@ -476,7 +567,8 @@ namespace Bots
                 squadSize = squad.Figures.Length;
                 if (squads.Count < unitsNeededBeforeAttack)
                 {
-                    Console.WriteLine("Army must have {0} squads to attack. Army has {1} squads", unitsNeededBeforeAttack, squads.Count);
+                    string msg = string.Format("Army must have {0} squads to attack. Army has {1} squads", unitsNeededBeforeAttack, squads.Count);
+                    ConsoleWriteLine(consoleWriteline, msg);
                     return null;
                 }
             }
@@ -1131,6 +1223,8 @@ namespace Bots
             }
 
             var myPower = yourPlayer.Entity.Power;
+            TokenSlot[] myOrbs = Array.FindAll(state.Entities.TokenSlots, x => x.Entity.PlayerEntityId == botState.myId);
+            startingOrb = myOrbs[0];
 
             #region Get power cost of first unit in deck
             // If we have power greater than the cost of the unit, we want to create the unit
@@ -1534,13 +1628,16 @@ namespace Bots
             if (myOrbs.Count > 0)
             {
                 Position2D orbPos = myOrbs[0].Entity.Position.To2D();
-                foreach (var s in enemySquads) // if squad is near me attack it
+                lock (enemySquadsLock)
                 {
-                    float enemySquadDistanceToOrb = MathF.Sqrt(DistanceSquared(s.Entity.Position.To2D(), orbPos));
-                    if (enemySquadDistanceToOrb < distanceFromBase)
+                    foreach (var s in enemySquads) // if squad is near me attack it
                     {
-                        enemySquad = s;
-                        return true;
+                        float enemySquadDistanceToOrb = MathF.Sqrt(DistanceSquared(s.Entity.Position.To2D(), orbPos));
+                        if (enemySquadDistanceToOrb < distanceFromBase)
+                        {
+                            enemySquad = s;
+                            return true;
+                        }
                     }
                 }
             }
@@ -1553,13 +1650,16 @@ namespace Bots
             if (myOrbs.Count > 0)
             {
                 Position2D orbPos = myOrbs[0].Entity.Position.To2D();
-                foreach (var s in enemySquads) // if squad is near me attack it
+                lock (enemySquadsLock)
                 {
-                    float enemySquadDistanceToOrb = MathF.Sqrt(DistanceSquared(s.Entity.Position.To2D(), orbPos));
-                    if (enemySquadDistanceToOrb < distanceFromBase)
+                    foreach (var s in enemySquads) // if squad is near me attack it
                     {
-                        enemySquad = s;
-                        return true;
+                        float enemySquadDistanceToOrb = MathF.Sqrt(DistanceSquared(s.Entity.Position.To2D(), orbPos));
+                        if (enemySquadDistanceToOrb < distanceFromBase)
+                        {
+                            enemySquad = s;
+                            return true;
+                        }
                     }
                 }
             }
@@ -1573,17 +1673,20 @@ namespace Bots
             if (myOrbs.Count > 0)
             {
                 Position2D orbPos = myOrbs[0].Entity.Position.To2D();
-                foreach (var s in enemySquads) // if squad is near me attack it
+                lock (enemySquadsLock)
                 {
-                    float enemySquadDistanceToOrb = MathF.Sqrt(DistanceSquared(s.Entity.Position.To2D(), orbPos));
-                    if (enemySquadDistanceToOrb < distanceFromBase)
+                    foreach (var s in enemySquads) // if squad is near me attack it
                     {
-                        if (enemySquad == null)
+                        float enemySquadDistanceToOrb = MathF.Sqrt(DistanceSquared(s.Entity.Position.To2D(), orbPos));
+                        if (enemySquadDistanceToOrb < distanceFromBase)
                         {
-                            enemySquad = new List<Squad>();
+                            if (enemySquad == null)
+                            {
+                                enemySquad = new List<Squad>();
+                            }
+                            enemySquad.Add(s);
+                            isEnemyNearBase = true;
                         }
-                        enemySquad.Add(s);
-                        isEnemyNearBase = true;
                     }
                 }
             }
@@ -3223,7 +3326,7 @@ namespace Bots
                             {
                                 wellBuildingSquad = 1; // Use the second squad
                             }
-                            if (mySquads.Count() > wellBuildingSquad)
+                            if (mySquads.Count() > wellBuildingSquad && mySquads[wellBuildingSquad] != null)
                             {
                                 Command? buildNearestWellCommand = BuildNearestWell(myPower, out myPower, mySquads[wellBuildingSquad].Entity, currentTick.V, out bool isWellBuilt);
                                 if (buildNearestWellCommand != null && isWellBuilt == true)
@@ -3503,8 +3606,10 @@ namespace Bots
                                     {
                                         Position2D wallPos = myWalls[0].Entity.Position.To2D();
                                         Position2D wallPosInt = new Position2D { X = (int)wallPos.X, Y = (int)wallPos.Y };
-                                        Position2D orbPos = myOrbs[0].Entity.Position.To2D();
-                                        Position2D orbPosInt = new Position2D { X = (int)myOrbs[0].Entity.Position.X, Y = (int)myOrbs[0].Entity.Position.Y };
+                                        Position2D orbPos = startingOrb.Entity.Position.To2D(); // myOrbs[0].Entity.Position.To2D();
+                                                                                                
+                                        // Position2D orbPosInt = new Position2D { X = (int)myOrbs[0].Entity.Position.X, Y = (int)myOrbs[0].Entity.Position.Y };
+                                        Position2D orbPosInt = new Position2D { X = (int)startingOrb.Entity.Position.X, Y = (int)startingOrb.Entity.Position.Y };
                                         Position2D mySqadPos = new Position2D { X = 0, Y = 0 };
                                         Position2D mySqadPosInt = new Position2D { X = 0, Y = 0 };
 
@@ -3613,6 +3718,7 @@ namespace Bots
                                 Command? spawn = null;
                                 Command? attack = null;
                                 Command? attackEnemy = null;
+                                Command? cmdOpenGate = null;
 
                                 if (isEnemyNearBase == true) // Keep attacking enemies near my orb base until gone!
                                 {
@@ -3908,17 +4014,20 @@ namespace Bots
                                 float nearestOpponentSquadDistance = float.MaxValue;
                                 if (attackClosestSquad == true || (enemyOrbs.Count() == 0 && enemyWells.Count() == 0))
                                 {
-                                    foreach (var s in enemySquads) // if squad is near me attack it
+                                    lock (enemySquadsLock)
                                     {
-                                        foreach (Squad squad in myAttackSquads)
+                                        foreach (var s in enemySquads) // if squad is near me attack it
                                         {
-                                            float squadDistanceToOpponent = DistanceSquared(squad.Entity.Position.To2D(), s.Entity.Position);
-                                            if (squadDistanceToOpponent < nearestOpponentSquadDistance)
+                                            foreach (Squad squad in myAttackSquads)
                                             {
-                                                nearestOpponentSquadDistance = squadDistanceToOpponent;
-                                                targetSquad = s.Entity.Id;
-                                                targetEntitySquad = s.Entity;
-                                                attackSquad = squad;
+                                                float squadDistanceToOpponent = DistanceSquared(squad.Entity.Position.To2D(), s.Entity.Position);
+                                                if (squadDistanceToOpponent < nearestOpponentSquadDistance)
+                                                {
+                                                    nearestOpponentSquadDistance = squadDistanceToOpponent;
+                                                    targetSquad = s.Entity.Id;
+                                                    targetEntitySquad = s.Entity;
+                                                    attackSquad = squad;
+                                                }
                                             }
                                         }
                                     }
@@ -4196,10 +4305,14 @@ namespace Bots
                                     GetAttackingSquadsCloserToEnemyThanTarget(enemyAttackingSquads, squads, targetEntity, out List<Squad>? engageEnemyAttackingSquads, out List<Squad>? myAttackingSquadsUpdated);
                                     if (engageEnemyAttackingSquads != null && engageEnemyAttackingSquads.Count() > 0)
                                     {
+                                        cmdOpenGate = OpenGateWhenNeeded(currentTick);
+
                                         attackEnemy = Attack(enemyAttackingSquads[0].Entity.Id, "squad", engageEnemyAttackingSquads, targetEntity.Position.To2D(), unitsNeededBeforeAttack);
                                     }
                                     if (myAttackingSquadsUpdated != null && myAttackingSquadsUpdated.Count() > 0)
                                     {
+                                        cmdOpenGate = OpenGateWhenNeeded(currentTick);
+
                                         attack = Attack(target, targetType, myAttackingSquadsUpdated, targetEntity.Position.To2D(), unitsNeededBeforeAttack);
                                     }
                                 }
@@ -4207,6 +4320,8 @@ namespace Bots
                                 {
                                     if (squads != null && squads.Count() > 0 && currentTick.V % defaultTickUpdateRate == 0) // NGE05062024 added  && currentTick.V % defaultTickUpdateRate == 0
                                     {
+                                        cmdOpenGate = OpenGateWhenNeeded(currentTick);
+
                                         attack = Attack(target, targetType, squads, targetEntity.Position.To2D(), unitsNeededBeforeAttack);
                                     }
                                 }
@@ -4216,7 +4331,8 @@ namespace Bots
                                 {
                                     if (previousTarget != target && previousSquadCount != squads.Count())
                                     {
-                                        Console.WriteLine($"Tick: {currentTick} Target:{target} My Power:{(int)myPower} Squads:{squads.Count()} Enemy Squads:{enemySquads.Count()}");
+                                        string msg = string.Format($"Tick: {currentTick} Target:{target} My Power:{(int)myPower} Squads:{squads.Count()} Enemy Squads:{enemySquads.Count()}");
+                                        ConsoleWriteLine(consoleWriteline, msg);
                                     }
                                 }
 
@@ -4231,6 +4347,10 @@ namespace Bots
                                         Console.WriteLine("Spawn unit, attack target and enemy");
                                     }
                                     commands.Add(spawn);
+                                    if (cmdOpenGate != null)
+                                    {
+                                        commands.Add(cmdOpenGate);
+                                    }
                                     commands.Add(attackEnemy);
                                     commands.Add(attack);
                                 }
@@ -4241,6 +4361,10 @@ namespace Bots
                                         Console.WriteLine("Spawn unit, attack target");
                                     }
                                     commands.Add(spawn);
+                                    if (cmdOpenGate != null)
+                                    {
+                                        commands.Add(cmdOpenGate);
+                                    }
                                     commands.Add(attack);
                                 }
                                 else if (spawn != null && attack == null && attackEnemy != null)
@@ -4250,6 +4374,10 @@ namespace Bots
                                         Console.WriteLine("Spawn unit, attack target and enemy");
                                     }
                                     commands.Add(spawn);
+                                    if (cmdOpenGate != null)
+                                    {
+                                        commands.Add(cmdOpenGate);
+                                    }
                                     commands.Add(attackEnemy);
                                 }
                                 else if (spawn != null)
@@ -4266,6 +4394,10 @@ namespace Bots
                                     {
                                         Console.WriteLine("Attack target and enemy");
                                     }
+                                    if (cmdOpenGate != null)
+                                    {
+                                        commands.Add(cmdOpenGate);
+                                    }
                                     commands.Add(attack);
                                     commands.Add(attackEnemy);
                                 }
@@ -4275,6 +4407,10 @@ namespace Bots
                                     {
                                         Console.WriteLine("Attack enemy");
                                     }
+                                    if (cmdOpenGate != null)
+                                    {
+                                        commands.Add(cmdOpenGate);
+                                    }
                                     commands.Add(attackEnemy);
                                 }
                                 else if (attack != null)
@@ -4282,6 +4418,10 @@ namespace Bots
                                     if (botState.isGameStart == true)
                                     {
                                         Console.WriteLine("Attack target");
+                                    }
+                                    if (cmdOpenGate != null)
+                                    {
+                                        commands.Add(cmdOpenGate);
                                     }
                                     commands.Add(attack);
                                 }

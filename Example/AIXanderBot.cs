@@ -1196,7 +1196,7 @@ namespace Bots
             {
                 if (myCurrentDeckOfficialCardIds.Ids[i] == (int)Api.CardTemplate.Wrecker)
                 {
-                    wallBreakerCardPosition = i;
+                    wreckerCardPosition = i;
                     ConsoleWriteLine(consoleWriteline, $"Deck has Wrecker unit at pos:{i}");
                     break;
                 }
@@ -2875,6 +2875,7 @@ namespace Bots
                 if (queryCardsWreckerT1OfficialId.Contains(deckIds.Ids[i]) == true)
                 {
                     wreckerCardIdPosition = i;
+                    break;
                 }
             }
             return wreckerCardIdPosition;

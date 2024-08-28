@@ -709,6 +709,62 @@ namespace Bots
         #endregion PvP Frost
 
         #region PvP Fire
+        public static readonly Deck GiftedFlameNew = new()
+        {
+            Name = "GiftedFlameNew",
+            CoverCardIndex = 0,
+            Cards = new Api.CardId[20]
+{
+                CardIdCreator.New(Api.CardTemplate.Wrecker, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Sunstriders, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Thugs, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Eruption, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.FireswornAFrost, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.TwilightMinionsANature, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Burrower, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.TwilightCrawlers, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SkyfireDrake, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.VilebloodAFire, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.GladiatrixANature, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.EnsnaringRoots, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Hurricane, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SurgeOfLight, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.CurseofOink, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.DisenchantAShadow, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Ravage, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.LavaField, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.MutatingManiacAFire, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.NightshadePlantAShadow, Upgrade.U3),
+}
+        };
+
+        public static readonly DeckOfficialCardIds GiftedFlameNewCardIds = new()
+        {
+            Name = "GiftedFlameNew",
+            Ids = new int[20]
+{
+                (int)Api.CardTemplate.Wrecker,
+                (int)Api.CardTemplate.Sunstriders,
+                (int)Api.CardTemplate.Thugs,
+                (int)Api.CardTemplate.Eruption,
+                (int)Api.CardTemplate.FireswornAFrost,
+                (int)Api.CardTemplate.TwilightMinionsANature,
+                (int)Api.CardTemplate.Burrower,
+                (int)Api.CardTemplate.TwilightCrawlers,
+                (int)Api.CardTemplate.SkyfireDrake,
+                (int)Api.CardTemplate.VilebloodAFire,
+                (int)Api.CardTemplate.GladiatrixANature,
+                (int)Api.CardTemplate.EnsnaringRoots,
+                (int)Api.CardTemplate.Hurricane,
+                (int)Api.CardTemplate.SurgeOfLight,
+                (int)Api.CardTemplate.CurseofOink,
+                (int)Api.CardTemplate.DisenchantAShadow,
+                (int)Api.CardTemplate.Ravage,
+                (int)Api.CardTemplate.LavaField,
+                (int)Api.CardTemplate.MutatingManiacAFire,
+                (int)Api.CardTemplate.NightshadePlantAShadow,
+}
+        };
 
         public static readonly Deck TaintedFlame = new() // Fire Shadown
         {

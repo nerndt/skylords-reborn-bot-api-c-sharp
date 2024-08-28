@@ -144,7 +144,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.2.0";
+        string botVersion = "0.0.2.1";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -223,6 +223,7 @@ namespace Bots
         DeckOfficialCardIds? myCurrentDeckOfficialCardIds = null; // myDeckOfficialCardIds.FirstOrDefault(d => d.Name == botState.selectedDeck.Name) ?? myDeckOfficialCardIds[0];
         List<SMJCard?> myCurrentSMJCards = new List<SMJCard>(); // List of all card info for current chosen deck
 
+        int? wreckerCardPosition = null; // Is there a wrecker card in the deck?
         List<int>? archerCardPositions = null; // GetArcherCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Cards in Deck are archers
         List<int>? towerCardPositions = null; // GetTowerCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1);
         List<int>? spellCardPositions = null; // GetSpellCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1);
@@ -1168,6 +1169,7 @@ namespace Bots
 
             // Get the deck cardIds from the matching currentDeck.Name
             myCurrentDeckOfficialCardIds = myDeckOfficialCardIds.FirstOrDefault(d => d.Name == botState.selectedDeck.Name) ?? myDeckOfficialCardIds[0];
+            wreckerCardPosition = GetWreckerCardPositionFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Card in Deck is a wrecker            
             archerCardPositions = GetArcherCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Cards in Deck are archers            
             towerCardPositions = GetTowerCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which cards are defense Towers example Stranglehold, Primeval Defender
             spellCardPositions = GetSpellCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which cards are defense Spess example Mine, Wallbreaker
@@ -1186,6 +1188,16 @@ namespace Bots
                 {
                     wallBreakerCardPosition = i;
                     ConsoleWriteLine(consoleWriteline, $"Deck has Wallbreaker spell at pos:{i}");
+                    break;
+                }
+            }
+
+            for (int i = 0; i < myCurrentDeckOfficialCardIds.Ids.Length; i++)
+            {
+                if (myCurrentDeckOfficialCardIds.Ids[i] == (int)Api.CardTemplate.Wrecker)
+                {
+                    wallBreakerCardPosition = i;
+                    ConsoleWriteLine(consoleWriteline, $"Deck has Wrecker unit at pos:{i}");
                     break;
                 }
             }
@@ -2852,6 +2864,21 @@ namespace Bots
             return null;
         }
 
+        // Get Unit 'Wrecker' card 
+        public int? GetWreckerCardPositionFromDeck(DeckOfficialCardIds deckIds, int obsTotal = 1)
+        {
+            int? wreckerCardIdPosition = null; // A deck has 20 card Ids ranging from position 0 (First card) to 19 (Last card)
+            var queryCardsWreckerT1OfficialId = cardsSMJ.Where(item => item.orbsTotal == obsTotal && item.cardName == "Wrecker").Select(s => s.officialCardIds[0]); // All T1 Archers CardIds
+
+            for (int i = 0; i < deckIds.Ids.Length; i++)
+            {
+                if (queryCardsWreckerT1OfficialId.Contains(deckIds.Ids[i]) == true)
+                {
+                    wreckerCardIdPosition = i;
+                }
+            }
+            return wreckerCardIdPosition;
+        }
 
         // Get Unit Class 'Archer' cards so that I can put them on a wall
         public List<int> GetArcherCardPositionsFromDeck(DeckOfficialCardIds deckIds, int obsTotal = 1)
@@ -3989,6 +4016,19 @@ namespace Bots
                                 {
                                     //string message = string.Format("SpawnUnit Attack with {0} army < {1}", attackSquads.Count(), defaultAttackSquads);
                                     //ConsoleWriteLine(consoleWriteline, message);
+
+                                    // NGE08272024 if the army contains a Wrecker in it, turn on its ability so that newly spawned units will not be dazed
+                                    if (attackSquadCount > 0 && wreckerCardPosition != null)
+                                    {
+                                        // See if a unit in the squad is a wrecker; if so, activate the rallying cry
+                                        //SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, (int)wreckerCardPosition);
+                                        List<Squad> wreckerSquads = myAttackSquads.Where(a => a.CardId == currentDeck.Cards[(int)wreckerCardPosition]).ToList(); // See if I have any wreckers
+                                        if (wreckerSquads != null && wreckerSquads.Count > 0)
+                                        {
+                                            // NGE08272024 !!!!!!! wreckerSquads[0] // Call the rallying cry
+                                            int foo = 0;
+                                        }
+                                    }
                                     spawn = SpawnUnit(myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);
                                 }
                                 else // Build more wells or orbs // NGE05222024!!!!!

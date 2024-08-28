@@ -144,7 +144,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.2.1";
+        string botVersion = "0.0.2.2";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -4018,15 +4018,25 @@ namespace Bots
                                     //ConsoleWriteLine(consoleWriteline, message);
 
                                     // NGE08272024 if the army contains a Wrecker in it, turn on its ability so that newly spawned units will not be dazed
-                                    if (attackSquadCount > 0 && wreckerCardPosition != null)
+                                    bool test = false;
+                                    if (test == true && attackSquadCount > 0 && wreckerCardPosition != null)
                                     {
                                         // See if a unit in the squad is a wrecker; if so, activate the rallying cry
-                                        //SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, (int)wreckerCardPosition);
                                         List<Squad> wreckerSquads = myAttackSquads.Where(a => a.CardId == currentDeck.Cards[(int)wreckerCardPosition]).ToList(); // See if I have any wreckers
                                         if (wreckerSquads != null && wreckerSquads.Count > 0)
                                         {
                                             // NGE08272024 !!!!!!! wreckerSquads[0] // Call the rallying cry
-                                            int foo = 0;
+                                            int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[(int)wreckerCardPosition];
+                                            SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
+                                            if (card.abilities != null && card.abilities.Count > 0)
+                                                Console.WriteLine("cast card {0} spell {1} id {2}", card.cardName, card.abilities[0].abilityName, 3001274);
+                                            Command command = new CommandCastSpellEntity
+                                            {
+                                                Entity = wreckerSquads[0].Entity.Id,
+                                                Spell = new SpellId((uint)3001274),
+                                                Target = new SingleTargetHolder { },
+                                            };
+                                            commands.Add(command);
                                         }
                                     }
                                     spawn = SpawnUnit(myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);

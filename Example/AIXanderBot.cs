@@ -14,6 +14,7 @@ using Microsoft.Extensions.FileSystemGlobbing;
 using SkylordsRebornAPI.Cardbase.Cards;
 using System.Runtime.ConstrainedExecution;
 using System.Drawing;
+using static System.Net.Mime.MediaTypeNames;
 
 // TODO Put archers on wall modules nearest to enemy.
 // Check code of when to attack enemy instead of target (typically enemy orb)
@@ -144,7 +145,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.2.2";
+        string botVersion = "0.0.2.3";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -4020,25 +4021,30 @@ namespace Bots
 
                                     // NGE08272024 if the army contains a Wrecker in it, turn on its ability so that newly spawned units will not be dazed
                                     bool test = false;
-                                    if (test == true && attackSquadCount > 0 && wreckerCardPosition != null)
+                                    bool doNotCastSpell = IsPosNearWellOrOrb(myArmyPos, myOrbs, myWells, 15);
+                                    if (test == true && doNotCastSpell == false)
                                     {
-                                        // See if a unit in the squad is a wrecker; if so, activate the rallying cry
-                                        List<Squad> wreckerSquads = myAttackSquads.Where(a => a.CardId == currentDeck.Cards[(int)wreckerCardPosition]).ToList(); // See if I have any wreckers
-                                        if (wreckerSquads != null && wreckerSquads.Count > 0)
-                                        {
-                                            // NGE08272024 !!!!!!! wreckerSquads[0] // Call the rallying cry
-                                            int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[(int)wreckerCardPosition];
-                                            SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                                            if (card.abilities != null && card.abilities.Count > 0)
-                                                Console.WriteLine("cast card {0} spell {1} id {2}", card.cardName, card.abilities[0].abilityName, 3001274);
-                                            Command command = new CommandCastSpellEntity
-                                            {
-                                                Entity = wreckerSquads[0].Entity.Id,
-                                                Spell = new SpellId((uint)3001274),
-                                                Target = new SingleTargetHolder { },
-                                            };
-                                            commands.Add(command);
-                                        }
+                                        CallRallyingCrySpellWhenAppropriate(test, myArmyPos, commands, ref myPower);
+                                        //if (test == true && attackSquadCount > 0 && wreckerCardPosition != null)
+                                        //{
+                                        //    // See if a unit in the squad is a wrecker; if so, activate the rallying cry
+                                        //    List<Squad> wreckerSquads = myAttackSquads.Where(a => a.CardId == currentDeck.Cards[(int)wreckerCardPosition]).ToList(); // See if I have any wreckers
+                                        //    if (wreckerSquads != null && wreckerSquads.Count > 0)
+                                        //    {
+                                        //        // NGE08272024 !!!!!!! wreckerSquads[0] // Call the rallying cry
+                                        //        int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[(int)wreckerCardPosition];
+                                        //        SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
+                                        //        if (card.abilities != null && card.abilities.Count > 0)
+                                        //            Console.WriteLine("cast card {0} spell {1} id {2}", card.cardName, card.abilities[0].abilityName, 3001274);
+                                        //        Command command = new CommandCastSpellEntity
+                                        //        {
+                                        //            Entity = wreckerSquads[0].Entity.Id,
+                                        //            Spell = new SpellId((uint)3001274),
+                                        //            Target = new SingleTargetHolder(new SingleTargetSingleEntity { Id = wreckerSquads[0].Entity.Id }),
+                                        //        };
+                                        //        commands.Add(command);
+                                        //    }
+                                        //}
                                     }
                                     spawn = SpawnUnit(myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);
                                 }
@@ -4652,6 +4658,71 @@ namespace Bots
             }
             botState.isGameStart = false;
             return commands.ToArray();
+        }
+
+        public bool IsPosNearWellOrOrb(Position2D pos, List<TokenSlot> orbs, List<PowerSlot> wells, float distance = 15)
+        {
+            foreach (TokenSlot orb in orbs)
+            {
+                double distanceToWell = Math.Sqrt(DistanceSquared(pos, orb.Entity.Position));
+                if (distanceToWell <= distance)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            foreach (PowerSlot well in wells)
+            {
+                double distanceToWell = Math.Sqrt(DistanceSquared(pos, well.Entity.Position));
+                if (distanceToWell <= distance)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        // Note: need to wait for the cast steps or resolve steps before creating a squad - in this case 1000 milliseconds or 1 second
+        public void CallRallyingCrySpellWhenAppropriate(bool test, Position2D pos, List<Command> commands, ref float powerRemaining)
+        {
+            // Only call when the squad being spawned is not near a well or orb // more than 15 meters away
+            if (test == true && attackSquadCount > 0 && wreckerCardPosition != null)
+            {
+                // See if a unit in the squad is a wrecker; if so, activate the rallying cry
+                List<Squad> wreckerSquads = myAttackSquads.Where(a => a.CardId == currentDeck.Cards[(int)wreckerCardPosition]).ToList(); // See if I have any wreckers
+                if (wreckerSquads != null && wreckerSquads.Count > 0)
+                {
+                    // See if the wrecker squad is near the pos
+                    foreach (Squad s in wreckerSquads)
+                    {
+                        if (Math.Sqrt(DistanceSquared(pos, s.Entity.Position)) <= 15)
+                        {
+                            int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[(int)wreckerCardPosition];
+                            SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
+                            if (card != null && card.abilities != null && card.abilities.Count > 0)
+                            {
+                                Console.WriteLine("cast card {0} spell {1} id {2}", card.cardName, card.abilities[0].abilityName, 3001274);
+                                Command command = new CommandCastSpellEntity
+                                {
+                                    Entity = wreckerSquads[0].Entity.Id,
+                                    Spell = new SpellId((uint)3001274),
+                                    Target = new SingleTargetHolder(new SingleTargetSingleEntity { Id = wreckerSquads[0].Entity.Id }),
+                                };
+                                powerRemaining -= card.abilities[0].abilityCost[0];
+                                commands.Add(command);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         private Command? SpawnArcherOnWall(Entity wall, List<BarrierModule> barrierModules, uint currentTick, float myPower, int unitPower, ref float powerRemaining)

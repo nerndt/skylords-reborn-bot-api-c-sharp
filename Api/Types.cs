@@ -7,7 +7,7 @@ namespace Api
 {
     public static class ApiVersion
     {
-        public const UInt64 VERSION = 22;
+        public const UInt64 VERSION = 23;
     }
     public enum Upgrade
     {
@@ -214,6 +214,7 @@ namespace Api
             if (Location != null) { return Location; }
             else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
         }
+        /// <summary> Do not use this constructor! It is only to make deserialization work. </summary>
         public SingleTargetHolder() { }
         public SingleTargetHolder(SingleTargetSingleEntity v) { SingleEntity = v; }
         public SingleTargetHolder(SingleTargetLocation v) { Location = v; }
@@ -266,6 +267,7 @@ namespace Api
             if (Multi != null) { return Multi; }
             else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
         }
+        /// <summary> Do not use this constructor! It is only to make deserialization work. </summary>
         public TargetHolder() { }
         public TargetHolder(TargetSingle v) { Single = v; }
         public TargetHolder(TargetMulti v) { Multi = v; }
@@ -600,6 +602,7 @@ namespace Api
             if (WideLine != null) { return WideLine; }
             else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
         }
+        /// <summary> Do not use this constructor! It is only to make deserialization work. </summary>
         public AreaShapeHolder() { }
         public AreaShapeHolder(AreaShapeCircle v) { Circle = v; }
         public AreaShapeHolder(AreaShapeCone v) { Cone = v; }
@@ -718,6 +721,7 @@ namespace Api
             if (Other != null) { return Other; }
             else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
         }
+        /// <summary> Do not use this constructor! It is only to make deserialization work. </summary>
         public AbilityEffectSpecificHolder() { }
         public AbilityEffectSpecificHolder(AbilityEffectSpecificDamageArea v) { DamageArea = v; }
         public AbilityEffectSpecificHolder(AbilityEffectSpecificDamageOverTime v) { DamageOverTime = v; }
@@ -924,6 +928,7 @@ namespace Api
             if (Unknown != null) { return Unknown; }
             else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
         }
+        /// <summary> Do not use this constructor! It is only to make deserialization work. </summary>
         public MountStateHolder() { }
         public MountStateHolder(MountStateUnmounted v) { Unmounted = v; }
         public MountStateHolder(MountStateMountingSquad v) { MountingSquad = v; }
@@ -1159,6 +1164,7 @@ namespace Api
             if (Roam != null) { return Roam; }
             else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
         }
+        /// <summary> Do not use this constructor! It is only to make deserialization work. </summary>
         public AspectHolder() { }
         public AspectHolder(AspectPowerProduction v) { PowerProduction = v; }
         public AspectHolder(AspectHealth v) { Health = v; }
@@ -1683,6 +1689,7 @@ namespace Api
             if (Unknown != null) { return Unknown; }
             else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
         }
+        /// <summary> Do not use this constructor! It is only to make deserialization work. </summary>
         public JobHolder() { }
         public JobHolder(JobNoJob v) { NoJob = v; }
         public JobHolder(JobIdle v) { Idle = v; }
@@ -1966,7 +1973,7 @@ namespace Api
         [JsonPropertyName("rotation_speed")]
         public required float RotationSpeed { get; set; }
         [JsonPropertyName("damage")]
-        public required float Damage { get; set; }
+        public float? Damage { get; set; }
         [JsonPropertyName("source")]
         public EntityId? Source { get; set; }
     }
@@ -2434,6 +2441,7 @@ namespace Api
             if (WhisperToMaster != null) { return WhisperToMaster; }
             else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
         }
+        /// <summary> Do not use this constructor! It is only to make deserialization work. </summary>
         public CommandHolder() { }
         public CommandHolder(CommandBuildHouse v) { BuildHouse = v; }
         public CommandHolder(CommandCastSpellGod v) { CastSpellGod = v; }
@@ -2826,19 +2834,27 @@ namespace Api
         public required CommandHolder Command { get; set; }
     }
 
-    public enum WhyCanNotPlayCardThere
+    public class WhyCanNotPlayCardThereConverter : JsonConverter<WhyCanNotPlayCardThere>
     {
-        DoesNotHaveEnoughPower = 0x10,
-        /// <summary>
-        ///  too close to (0,y), or (x,0)
-        /// </summary>
-        InvalidPosition = 0x20,
-        CardCondition = 0x80,
-        ConditionPreventCardPlay = 0x100,
-        DoesNotHaveThatCard = 0x200,
-        DoesNotHaveEnoughOrbs = 0x400,
-        CastingTooOften = 0x10000,
+        public override bool CanConvert(Type t) { return t == typeof(WhyCanNotPlayCardThere); }
+        public override WhyCanNotPlayCardThere? Read(ref Utf8JsonReader reader, Type t, JsonSerializerOptions options) { var v = reader.GetUInt32(); return new WhyCanNotPlayCardThere(v); }
+        public override void Write(Utf8JsonWriter writer, WhyCanNotPlayCardThere value, JsonSerializerOptions options) { writer.WriteNumberValue(value.V); }
     }
+    /// <summary>
+    ///  Kind of Bit flags
+    ///  CanPlay = 0,
+    ///  PlayerNotFound = 0x1,
+    ///  CardOrSpellDoesNotExist = 0x2,
+    ///  DoesNotHaveEnoughPower = 0x10,
+    ///  InvalidPosition = 0x20, // too close to (0,y), or (x,0)
+    ///  CardCondition = 0x80,
+    ///  ConditionPreventCardPlay = 0x100, // searched in up to 50m radius?
+    ///  DoesNotHaveThatCard = 0x200,
+    ///  DoesNotHaveEnoughOrbs = 0x400,
+    ///  NotEnoughPopulation = 0x800,
+    /// </summary>
+    [JsonConverter(typeof(WhyCanNotPlayCardThereConverter))]
+    public record WhyCanNotPlayCardThere(UInt32 V);
 
     /// <summary>
     ///  Reason why command was rejected
@@ -2851,6 +2867,12 @@ namespace Api
         [JsonPropertyName("CardRejected")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public CommandRejectionReasonCardRejected? CardRejected { get; set; }
+        /// <summary>
+        ///  You need to wait 10 ticks, after playing card, before playing another card
+        /// </summary>
+        [JsonPropertyName("CastingTooOften")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public CommandRejectionReasonCastingTooOften? CastingTooOften { get; set; }
         /// <summary>
         ///  Player did not have enough power to play the card or activate the ability
         /// </summary>
@@ -2927,6 +2949,7 @@ namespace Api
         public CommandRejectionReason Get()
         {
             if (CardRejected != null) { return CardRejected; }
+            if (CastingTooOften != null) { return CastingTooOften; }
             if (NotEnoughPower != null) { return NotEnoughPower; }
             if (SpellDoesNotExist != null) { return SpellDoesNotExist; }
             if (EntityDoesNotExist != null) { return EntityDoesNotExist; }
@@ -2941,8 +2964,10 @@ namespace Api
             if (InvalidCard != null) { return InvalidCard; }
             else { throw new InvalidOperationException("Impossible, because all cases was handled above"); }
         }
+        /// <summary> Do not use this constructor! It is only to make deserialization work. </summary>
         public CommandRejectionReasonHolder() { }
         public CommandRejectionReasonHolder(CommandRejectionReasonCardRejected v) { CardRejected = v; }
+        public CommandRejectionReasonHolder(CommandRejectionReasonCastingTooOften v) { CastingTooOften = v; }
         public CommandRejectionReasonHolder(CommandRejectionReasonNotEnoughPower v) { NotEnoughPower = v; }
         public CommandRejectionReasonHolder(CommandRejectionReasonSpellDoesNotExist v) { SpellDoesNotExist = v; }
         public CommandRejectionReasonHolder(CommandRejectionReasonEntityDoesNotExist v) { EntityDoesNotExist = v; }
@@ -2961,6 +2986,8 @@ namespace Api
             {
                 case CommandRejectionReasonCardRejected s:
                     CardRejected = s; break;
+                case CommandRejectionReasonCastingTooOften s:
+                    CastingTooOften = s; break;
                 case CommandRejectionReasonNotEnoughPower s:
                     NotEnoughPower = s; break;
                 case CommandRejectionReasonSpellDoesNotExist s:
@@ -2989,6 +3016,7 @@ namespace Api
         }
     }
     [JsonDerivedType(typeof(CommandRejectionReasonCardRejected))]
+    [JsonDerivedType(typeof(CommandRejectionReasonCastingTooOften))]
     [JsonDerivedType(typeof(CommandRejectionReasonNotEnoughPower))]
     [JsonDerivedType(typeof(CommandRejectionReasonSpellDoesNotExist))]
     [JsonDerivedType(typeof(CommandRejectionReasonEntityDoesNotExist))]
@@ -3012,6 +3040,15 @@ namespace Api
         public required WhyCanNotPlayCardThere Reason { get; set; }
         [JsonPropertyName("failed_card_conditions")]
         public required UInt32[] FailedCardConditions { get; set; }
+    }
+
+    /// <summary>
+    ///  You need to wait 10 ticks, after playing card, before playing another card
+    /// </summary>
+    public sealed class CommandRejectionReasonCastingTooOften : CommandRejectionReason
+    {
+        [JsonPropertyName("cooldown_until")]
+        public required Tick CooldownUntil { get; set; }
     }
 
     /// <summary>

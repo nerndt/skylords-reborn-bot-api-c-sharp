@@ -22,11 +22,11 @@ namespace Bots
 {
     // /AI: list
     // Tainted Gifted Blessed Infused   Darkenss Flora Ice Flame GiftedFLora - all nature, BlessedIce - all frost, TaintedDarness - all shadow InfusedFlame - all fire
+    // /AI: add XanderAI TopDeck 4
     // /AI: add XanderAI GiftedFlameNew 4
     // /AI: add XanderAI GiftedFlame 4
     // /AI: add XanderAI TaintedFlora 4
     // /AI: add XanderAI GiftedIce 4
-    // /AI: add XanderAI TopDeck 4
     // /AI: add XanderAI InfusedFlame 4
     // Basic Strategies:
 
@@ -145,7 +145,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.0.2.4";
+        string botVersion = "0.0.2.5";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -156,6 +156,7 @@ namespace Bots
         int unitPower = 75; // Power needed to build a specific game card
 
         int unitsNeededBeforeAttack = 6; // Must be <= defaultAttackSquads
+        bool enemyBuildingOrb = false; // If enemy building second orb, go attack right away!
         int defaultTickUpdateRate = 2;
         int defaultAttackSquads = 6; // For now do not build more than X attack units
         int defaultDefendSquads = 6; // For now do not build more than X defend units
@@ -166,7 +167,7 @@ namespace Bots
         bool buildArcherOnWallAtStartWasTrue = false;
         bool archerOnWallAtStartBuilt = false;
 
-        bool buildNearbyWellAtStart = true;
+        bool buildNearbyWellAtStart = false; // NGE11022024 true;
         bool buildNearbyOrbAtStart = false;
 
         bool attackClosestSquad = false;
@@ -225,6 +226,7 @@ namespace Bots
         List<SMJCard?> myCurrentSMJCards = new List<SMJCard>(); // List of all card info for current chosen deck
 
         int? wreckerCardPosition = null; // Is there a wrecker card in the deck?
+        List<int>? swiftCardPositions = null; // GetCardPositionsBasedOnAbilityFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Cards in Deck are ability swift
         List<int>? archerCardPositions = null; // GetArcherCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Cards in Deck are archers
         List<int>? towerCardPositions = null; // GetTowerCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1);
         List<int>? spellCardPositions = null; // GetSpellCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1);
@@ -253,6 +255,7 @@ namespace Bots
         int previousSquadCount = 0;
 
         TokenSlot? startingOrb = null;
+        TokenSlot? startingOrbEnemy = null;
 
         /// <summary>
         /// // This dictates what to build when in the process during the PvP battle
@@ -1171,6 +1174,7 @@ namespace Bots
             // Get the deck cardIds from the matching currentDeck.Name
             myCurrentDeckOfficialCardIds = myDeckOfficialCardIds.FirstOrDefault(d => d.Name == botState.selectedDeck.Name) ?? myDeckOfficialCardIds[0];
             wreckerCardPosition = GetWreckerCardPositionFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Card in Deck is a wrecker            
+            swiftCardPositions = GetCardPositionsBasedOnAbilityFromDeck(myCurrentDeckOfficialCardIds, "Swift", 1); // Which Cards in Deck are archers            
             archerCardPositions = GetArcherCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which Cards in Deck are archers            
             towerCardPositions = GetTowerCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which cards are defense Towers example Stranglehold, Primeval Defender
             spellCardPositions = GetSpellCardPositionsFromDeck(myCurrentDeckOfficialCardIds, 1); // Which cards are defense Spess example Mine, Wallbreaker
@@ -1242,6 +1246,10 @@ namespace Bots
             var myPower = yourPlayer.Entity.Power;
             TokenSlot[] myOrbs = Array.FindAll(state.Entities.TokenSlots, x => x.Entity.PlayerEntityId == botState.myId);
             startingOrb = myOrbs[0];
+
+            TokenSlot[] enemyOrbs = Array.FindAll(state.Entities.TokenSlots, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId)));
+            if (enemyOrbs != null)
+                startingOrbEnemy = enemyOrbs[0];
 
             #region Get power cost of first unit in deck
             // If we have power greater than the cost of the unit, we want to create the unit
@@ -2898,6 +2906,28 @@ namespace Bots
             return archerCardIdPositions;
         }
 
+        // Get Unit Ability 'Swift' cards so that I can put them on a wall
+        public List<int> GetCardPositionsBasedOnAbilityFromDeck(DeckOfficialCardIds deckIds, string abilityName, int obsTotal = 1)
+        {
+            List<int> swiftCardIdPositions = new List<int>(); // A deck has 20 card Ids ranging from position 0 (First card) to 19 (Last card)
+            for (int i = 0; i < deckIds.Ids.Length; i++)
+            {
+                int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[i];
+                SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
+                if (card != null && card.abilities != null && card.abilities.Count > 0)
+                {
+                    for (int a = 0; a < card.abilities.Count; a++)
+                    {
+                        if (card.orbsTotal <= obsTotal && card.abilities[a].abilityName == abilityName)
+                        {
+                            swiftCardIdPositions.Add(i);
+                        }
+                    }
+                }
+            }
+            return swiftCardIdPositions;
+        }
+
         // Get Building Class 'Tower' cards so that I can put them on a wall
         public List<int> GetTowerCardPositionsFromDeck(DeckOfficialCardIds deckIds, int obsTotal = 1)
         {
@@ -3114,7 +3144,7 @@ namespace Bots
             }
         }
 
-        public Command[] TickBebug(GameState state)
+        public Command[] TickDebug(GameState state)
         {
             Command[] commands = null;
             string deckName = botState.selectedDeck.Name;
@@ -3304,9 +3334,16 @@ namespace Bots
 
                         float enemyDistance = float.MaxValue;
 
-                        if (unitsNeededBeforeAttack > defaultAttackSquads) // Must be <= defaultAttackSquads
+                        if (enemyBuildingOrb == true)
                         {
-                            unitsNeededBeforeAttack = defaultAttackSquads;
+                            unitsNeededBeforeAttack = 1;
+                        }
+                        else
+                        {
+                            if (unitsNeededBeforeAttack > defaultAttackSquads) // Must be <= defaultAttackSquads
+                            {
+                                unitsNeededBeforeAttack = defaultAttackSquads;
+                            }
                         }
 
                         #region Buid/Rebuild Orb if none exist!
@@ -3357,187 +3394,253 @@ namespace Bots
                         }
                         #endregion Buid/Rebuild Orb if none exist!
 
-
-                        #region Build/Repair wall if enemy near my orb
-                        if (enemySquads.Count() > 0 && myOrbs.Count() > 0 && myWalls.Count() == 0)
+                        #region If enemy builds new orb, attack it!
+                        TokenSlot? enemyOrbToAttack = null;
+                        if (enemyOrbs != null && enemyOrbs.Count > 1)
                         {
-                            GetClosestEnemy(myOrbs[0].Entity.Position.To2D(), out Squad? nearestEnemy, out enemyDistance);
-                            if (nearestEnemy != null && enemyDistance < enemyNearOrbDistance) // Want enough time to build power to build wall
+                            for (int i = 0; i < enemyOrbs.Count; i++)
                             {
-                                buildNearbyWallAtStart = true;
-                            }
-                        }
-                        else if (enemySquads.Count() > 0 && myOrbs.Count() > 0 && myWalls.Count() > 0)
-                        {
-                            GetClosestEnemy(myOrbs[0].Entity.Position.To2D(), out Squad? nearestEnemy, out enemyDistance);
-                            if (nearestEnemy != null && enemyDistance < engageEnemyNearOrbDistance) // Make sure gate is closed!
-                            {
-                                Command? cmdCloseGate = ToggleGate(false, currentTick.V);
-                                if (cmdCloseGate != null)
+                                if (enemyOrbs[i] != startingOrbEnemy)
                                 {
-                                    Console.WriteLine("Close Gate!");
-                                    return new Command[] { cmdCloseGate };
+                                    enemyOrbToAttack = enemyOrbs[i];
+                                    break;
                                 }
                             }
                         }
-                        #endregion Build/Repair wall if enemy near my orb
-
-                        #region Build Wall at start
-                        if (buildNearbyWallAtStart == true && closestWall.V != 0 && myWalls.Count() == 0 && buildNearbyWallAtStartWasTrue == false)
+                        if (enemyOrbToAttack != null)
                         {
-                            if (closestWallDistanceSq < enemyNearOrbDistance && myPower > buildWallCost)
+                            enemyBuildingOrb = false; // NGE110222024 !!!! Not working yet!! true;
+                            string message = string.Format("Enemy build another orb! EntityId={0}", enemyOrbToAttack.Entity.Id);
+                            ConsoleWriteLine(consoleWriteline, message);
+                            // Attack the orb with any army units
+                            /*
+                                                        
+                            int cardID = 0; // Default card ID
+                            // bool armyHasSwiftUnit = false; // If army does not have a swift unit, make one!
+                            int unitPower = 75; // Default power cost - should be able to find info about card
+                            if (swiftCardPositions != null && swiftCardPositions.Count > 0)
                             {
-                                Command[] cmd = BuildWall(myPower, out float powerRemaining, closestWall, false, currentTick.V);
-                                // Console.WriteLine("WallId:{0} built at:{1},{2}", closestWall, (int)closestWallPosition.X, (int)closestWallPosition.Y);
-                                return cmd.ToArray();
+                                SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, swiftCardPositions[0]);
+                                if (card != null)
+                                {
+                                    unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+                                }
                             }
                             else
                             {
-                                return Array.Empty<Command>(); // Need more power!!
-                            }
-                        }
-                        if (buildNearbyWallAtStart == true && myWalls.Count() > 0 && myWallModules.Count() > 0) // Open Wall gate to let out squads
-                        {
-                            buildNearbyWallAtStartWasTrue = true;
-                            if (buildArcherOnWallAtStart == true)
-                            {
-                                if (archerCardPositions != null)
+                                SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, myCurrentDeckOfficialCardIds.Ids[0]);
+                                if (card != null)
                                 {
-                                    Command? spawn = null;
-                                    Command? spawnOnBarrier = null;
+                                    unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+                                }
+                            }
 
-                                    byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
-                                    var archerSquads = mySquads.Where(a => a.CardId == currentDeck.Cards[cardPosition]).ToList(); // See if I have any archers
+                            Position2D wallPos = myWalls[0].Entity.Position.To2D();
+                            Position2D pos = new Position2D { X = wallPos.X - (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y - (wallPos.Y - botState.myStart.Y) / 2 };
 
-                                    int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPosition]; // Should be an archer
+                            Command? spawn = SpawnUnit(myPower, pos, (byte)cardID, unitPower, currentTick.V, ref myPower); // Create Archer
+                            if (spawn != null)
+                            {
+                                commands.Add(spawn);
+                                Command? cmdOpenGate = ToggleGate(true, currentTick.V);
+                                if (cmdOpenGate != null)
+                                {
+                                    commands.Add(cmdOpenGate);
+                                }
 
-                                    int unitPowerArcher = 75; // Default power cost - should be able to find info about card
-                                    if (unitOfficialCardId != 0) // Not a card
+                                return commands.ToArray();
+                            }
+
+                            */
+                        }
+                        else
+                        {
+                            enemyBuildingOrb = false;
+                        }
+                        #endregion
+
+                        if (enemyBuildingOrb == false)
+                        {
+                            #region Build/Repair wall if enemy near my orb
+                            if (enemySquads.Count() > 0 && myOrbs.Count() > 0 && myWalls.Count() == 0)
+                            {
+                                GetClosestEnemy(myOrbs[0].Entity.Position.To2D(), out Squad? nearestEnemy, out enemyDistance);
+                                if (nearestEnemy != null && enemyDistance < enemyNearOrbDistance) // Want enough time to build power to build wall
+                                {
+                                    buildNearbyWallAtStart = true;
+                                }
+                            }
+                            else if (enemySquads.Count() > 0 && myOrbs.Count() > 0 && myWalls.Count() > 0)
+                            {
+                                GetClosestEnemy(myOrbs[0].Entity.Position.To2D(), out Squad? nearestEnemy, out enemyDistance);
+                                if (nearestEnemy != null && enemyDistance < engageEnemyNearOrbDistance) // Make sure gate is closed!
+                                {
+                                    Command? cmdCloseGate = ToggleGate(false, currentTick.V);
+                                    if (cmdCloseGate != null)
                                     {
-                                        SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                                        if (card != null)
+                                        Console.WriteLine("Close Gate!");
+                                        return new Command[] { cmdCloseGate };
+                                    }
+                                }
+                            }
+                            #endregion Build/Repair wall if enemy near my orb
+
+                            #region Build Wall at start
+                            if (buildNearbyWallAtStart == true && closestWall.V != 0 && myWalls.Count() == 0 && buildNearbyWallAtStartWasTrue == false)
+                            {
+                                if (closestWallDistanceSq < enemyNearOrbDistance && myPower > buildWallCost)
+                                {
+                                    Command[] cmd = BuildWall(myPower, out float powerRemaining, closestWall, false, currentTick.V);
+                                    // Console.WriteLine("WallId:{0} built at:{1},{2}", closestWall, (int)closestWallPosition.X, (int)closestWallPosition.Y);
+                                    return cmd.ToArray();
+                                }
+                                else
+                                {
+                                    return Array.Empty<Command>(); // Need more power!!
+                                }
+                            }
+                            if (buildNearbyWallAtStart == true && myWalls.Count() > 0 && myWallModules.Count() > 0) // Open Wall gate to let out squads
+                            {
+                                buildNearbyWallAtStartWasTrue = true;
+                                if (buildArcherOnWallAtStart == true)
+                                {
+                                    if (archerCardPositions != null)
+                                    {
+                                        Command? spawn = null;
+                                        Command? spawnOnBarrier = null;
+
+                                        byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
+                                        var archerSquads = mySquads.Where(a => a.CardId == currentDeck.Cards[cardPosition]).ToList(); // See if I have any archers
+
+                                        int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPosition]; // Should be an archer
+
+                                        int unitPowerArcher = 75; // Default power cost - should be able to find info about card
+                                        if (unitOfficialCardId != 0) // Not a card
                                         {
-                                            unitPowerArcher = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
-                                            //if (botState.isGameStart == true)
-                                            //{
-                                            //    Console.WriteLine("Found Card Info:{0}", card.cardName);
-                                            //    Console.WriteLine("My Power:{0} Unit Power:{1} Orbs:{2} Wells{3}", (int)myPower, unitPower, myOrbs.Count(), myWells.Count());
-                                            //}
+                                            SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
+                                            if (card != null)
+                                            {
+                                                unitPowerArcher = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+                                                                                     //if (botState.isGameStart == true)
+                                                                                     //{
+                                                                                     //    Console.WriteLine("Found Card Info:{0}", card.cardName);
+                                                                                     //    Console.WriteLine("My Power:{0} Unit Power:{1} Orbs:{2} Wells{3}", (int)myPower, unitPower, myOrbs.Count(), myWells.Count());
+                                                                                     //}
+                                            }
+                                            else
+                                            {
+                                                Console.WriteLine("Card Not Found:ID{0}", (int)SkylordsRebornAPI.Cardbase.CardTemplate.NomadANature);
+                                            }
+                                        }
+
+                                        if (archerOnWallAtStartBuilt == false && myPower > unitPowerArcher)
+                                        {
+                                            Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPowerArcher, ref myPower);
+                                            if (commandSpawnArcherOnWall != null)
+                                            {
+                                                buildArcherOnWallAtStart = false;
+                                                archerOnWallAtStartBuilt = true;
+
+                                                commands.Add(commandSpawnArcherOnWall);
+                                                return commands.ToArray();
+                                            }
+                                        }
+                                        else if (myPower > unitPowerArcher) // Make an archer squad at starting near orb location for now
+                                        {
+                                            Position2D wallPos = myWalls[0].Entity.Position.To2D();
+                                            Position2D pos = new Position2D { X = wallPos.X - (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y - (wallPos.Y - botState.myStart.Y) / 2 };
+
+                                            spawn = SpawnUnit(myPower, pos, cardPosition, unitPowerArcher, currentTick.V, ref myPower); // Create Archer
+                                            if (spawn != null)
+                                            {
+                                                commands.Add(spawn);
+                                                Command? cmdOpenGate = ToggleGate(true, currentTick.V);
+                                                if (cmdOpenGate != null)
+                                                {
+                                                    commands.Add(cmdOpenGate);
+                                                }
+
+                                                return commands.ToArray();
+                                            }
                                         }
                                         else
                                         {
-                                            Console.WriteLine("Card Not Found:ID{0}", (int)SkylordsRebornAPI.Cardbase.CardTemplate.NomadANature);
-                                        }
-                                    }
-
-                                    if (archerOnWallAtStartBuilt == false && myPower > unitPowerArcher)
-                                    {
-                                        Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPowerArcher, ref myPower);
-                                        if (commandSpawnArcherOnWall != null)
-                                        {
-                                            buildArcherOnWallAtStart = false;
-                                            archerOnWallAtStartBuilt = true;
-
-                                            commands.Add(commandSpawnArcherOnWall);
                                             return commands.ToArray();
                                         }
                                     }
-                                    else if (myPower > unitPowerArcher) // Make an archer squad at starting near orb location for now
+                                }
+
+                                buildNearbyWallAtStart = false; // This task is completed
+                            }
+                            #endregion Build Wall at start
+
+                            #region Build Nearest Empty Well at Start
+                            if (buildNearbyWellAtStart == true && emptyWells.Count() > 0)
+                            {
+                                int wellBuildingSquad = 0;
+                                if (buildArcherOnWallAtStartWasTrue == true)
+                                {
+                                    wellBuildingSquad = 1; // Use the second squad
+                                }
+                                if (mySquads.Count() > wellBuildingSquad && mySquads[wellBuildingSquad] != null)
+                                {
+                                    Command? buildNearestWellCommand = BuildNearestWell(myPower, out myPower, mySquads[wellBuildingSquad].Entity, currentTick.V, out bool isWellBuilt);
+                                    if (buildNearestWellCommand != null && isWellBuilt == true)
                                     {
-                                        Position2D wallPos = myWalls[0].Entity.Position.To2D();
-                                        Position2D pos = new Position2D { X = wallPos.X - (wallPos.X - botState.myStart.X) / 2, Y = wallPos.Y - (wallPos.Y - botState.myStart.Y) / 2 };
-
-                                        spawn = SpawnUnit(myPower, pos, cardPosition, unitPowerArcher, currentTick.V, ref myPower); // Create Archer
-                                        if (spawn != null)
-                                        {
-                                            commands.Add(spawn);
-                                            Command? cmdOpenGate = ToggleGate(true, currentTick.V);
-                                            if (cmdOpenGate != null)
-                                            {
-                                                commands.Add(cmdOpenGate);
-                                            }
-
-                                            return commands.ToArray();
-                                        }
+                                        buildNearbyWellAtStart = false;
+                                        commands.Add(buildNearestWellCommand); // NGE05122024!!!!!! 
+                                        return commands.ToArray(); // NGE05122024!!!!!! 
+                                    }
+                                    else if (buildNearestWellCommand != null)
+                                    {
+                                        commands.Add(buildNearestWellCommand); // NGE05122024!!!!!! 
+                                        return commands.ToArray(); // NGE05122024!!!!!! 
                                     }
                                     else
                                     {
-                                        return commands.ToArray();
+                                        myPower = 0; // Set Power to 0 so nothing else happens until a well is built
                                     }
                                 }
                             }
+                            #endregion Build Nearest Empty Well at Start
 
-                            buildNearbyWallAtStart = false; // This task is completed
+                            #region Build Nearest Empty Orb at Start
+                            if (myPower != 0 && buildNearbyOrbAtStart == true && emptyOrbs.Count() > 0)
+                            {
+                                int orbBuildingSquad = 0;
+                                if (buildArcherOnWallAtStartWasTrue == true)
+                                {
+                                    orbBuildingSquad = 1; // Use the second squad
+                                }
+                                if (mySquads.Count() > orbBuildingSquad)
+                                {
+                                    CreateOrbColor orbColor = orbColorBuildOrder[myOrbs.Count]; // CreateOrbColor.Fire;  
+                                    int myOrbCount = myOrbs.Count();
+                                    if (orbColorBuildOrder.Count() > myOrbCount)
+                                    {
+                                        orbColor = orbColorBuildOrder[myOrbs.Count()];
+                                    }
+
+                                    Command? buildNearestOrbCommand = BuildNearestOrb(myPower, out myPower, mySquads[orbBuildingSquad].Entity, orbColor, currentTick.V, out bool isOrbBuilt);
+                                    if (buildNearestOrbCommand != null && isOrbBuilt == true)
+                                    {
+                                        buildNearbyOrbAtStart = false;
+                                        commands.Add(buildNearestOrbCommand); // NGE05122024!!!!!! 
+                                        return commands.ToArray(); // NGE05122024!!!!!! 
+                                    }
+                                    else if (buildNearestOrbCommand != null)
+                                    {
+                                        commands.Add(buildNearestOrbCommand); // NGE05122024!!!!!! 
+                                        return commands.ToArray(); // NGE05122024!!!!!! 
+                                    }
+                                    else
+                                    {
+                                        myPower = 0; // Set Power to 0 so nothing else happens until a orb is built
+                                    }
+                                }
+                            }
+                            #endregion Build Nearest Empty Orb at Start
                         }
-                        #endregion Build Wall at start
-
-                        #region Build Nearest Empty Well at Start
-                        if (buildNearbyWellAtStart == true && emptyWells.Count() > 0)
-                        {
-                            int wellBuildingSquad = 0;
-                            if (buildArcherOnWallAtStartWasTrue == true)
-                            {
-                                wellBuildingSquad = 1; // Use the second squad
-                            }
-                            if (mySquads.Count() > wellBuildingSquad && mySquads[wellBuildingSquad] != null)
-                            {
-                                Command? buildNearestWellCommand = BuildNearestWell(myPower, out myPower, mySquads[wellBuildingSquad].Entity, currentTick.V, out bool isWellBuilt);
-                                if (buildNearestWellCommand != null && isWellBuilt == true)
-                                {
-                                    buildNearbyWellAtStart = false;
-                                    commands.Add(buildNearestWellCommand); // NGE05122024!!!!!! 
-                                    return commands.ToArray(); // NGE05122024!!!!!! 
-                                }
-                                else if (buildNearestWellCommand != null)
-                                {
-                                    commands.Add(buildNearestWellCommand); // NGE05122024!!!!!! 
-                                    return commands.ToArray(); // NGE05122024!!!!!! 
-                                }
-                                else
-                                {
-                                    myPower = 0; // Set Power to 0 so nothing else happens until a well is built
-                                }
-                            }
-                        }
-                        #endregion Build Nearest Empty Well at Start
-
-                        #region Build Nearest Empty Orb at Start
-                        if (myPower != 0 && buildNearbyOrbAtStart == true && emptyOrbs.Count() > 0)
-                        {
-                            int orbBuildingSquad = 0;
-                            if (buildArcherOnWallAtStartWasTrue == true)
-                            {
-                                orbBuildingSquad = 1; // Use the second squad
-                            }
-                            if (mySquads.Count() > orbBuildingSquad)
-                            {
-                                CreateOrbColor orbColor = orbColorBuildOrder[myOrbs.Count]; // CreateOrbColor.Fire;  
-                                int myOrbCount = myOrbs.Count();
-                                if (orbColorBuildOrder.Count() > myOrbCount)
-                                {
-                                    orbColor = orbColorBuildOrder[myOrbs.Count()];
-                                }
-
-                                Command? buildNearestOrbCommand = BuildNearestOrb(myPower, out myPower, mySquads[orbBuildingSquad].Entity, orbColor, currentTick.V, out bool isOrbBuilt);
-                                if (buildNearestOrbCommand != null && isOrbBuilt == true)
-                                {
-                                    buildNearbyOrbAtStart = false;
-                                    commands.Add(buildNearestOrbCommand); // NGE05122024!!!!!! 
-                                    return commands.ToArray(); // NGE05122024!!!!!! 
-                                }
-                                else if (buildNearestOrbCommand != null)
-                                {
-                                    commands.Add(buildNearestOrbCommand); // NGE05122024!!!!!! 
-                                    return commands.ToArray(); // NGE05122024!!!!!! 
-                                }
-                                else
-                                {
-                                    myPower = 0; // Set Power to 0 so nothing else happens until a orb is built
-                                }
-                            }
-                        }
-                        #endregion Build Nearest Empty Orb at Start
-
 
                         if (botState.isGameStart == true || currentTick.V % defaultTickUpdateRate == 0) // Try to do stuff every 0.5 seconds instead of every 1/10 second
                         {
@@ -3987,8 +4090,9 @@ namespace Bots
                                         //ConsoleWriteLine(true, message); // ConsoleWriteLine(consoleWriteline, message);
                                     }
 
-                                    Position2D wallPos = myWalls[0].Entity.Position.To2D(); // Get nearest wall pos
-                                    EntityId myWallId = myWalls[0].Entity.Id;
+                                    // NGE11022024 Position2D wallPos = myWalls[0].Entity.Position.To2D(); // Get nearest wall pos
+                                    // NGE11022024 EntityId myWallId = myWalls[0].Entity.Id;
+
                                     //spawn = SpawnArcherOnBarrier(myArmy, myPower, botState.myStart, myWallId, unitPower, currentTick.V); // wallPos
                                     if (archerCardPositions != null)
                                     {
@@ -4005,11 +4109,14 @@ namespace Bots
                                             }
                                         }
 
-                                        Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPowerArcher, ref myPower);
-                                        if (commandSpawnArcherOnWall != null)
+                                        if (myWalls.Count > 0)
                                         {
-                                            commands.Add(commandSpawnArcherOnWall);
-                                            return commands.ToArray();// NGE05122024!!!!!! return commands.ToArray();
+                                            Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPowerArcher, ref myPower);
+                                            if (commandSpawnArcherOnWall != null)
+                                            {
+                                                commands.Add(commandSpawnArcherOnWall);
+                                                return commands.ToArray();// NGE05122024!!!!!! return commands.ToArray();
+                                            }
                                         }
                                     }
                                 }
@@ -4046,7 +4153,45 @@ namespace Bots
                                         //    }
                                         //}
                                     }
-                                    spawn = SpawnUnit(myPower, myArmyPos, 0, unitPower, currentTick.V, ref myPower);
+
+                                    int cardID = 0; // Default card ID
+                                                    
+                                    bool armyHasSwiftUnit = false; // If army does not have a swift unit, make one!
+                                    if (myAttackSquads != null)
+                                    {
+                                        foreach (var s in myAttackSquads) // if squad is near Entity, attack it
+                                        {
+                                            if (swiftCardPositions != null && swiftCardPositions.Count > 0)
+                                            {
+                                                armyHasSwiftUnit = true;
+                                                break;
+                                            }
+
+                                        }
+                                        if (armyHasSwiftUnit == false)
+                                        {
+                                            if (swiftCardPositions != null && swiftCardPositions.Count > 0)
+                                            {
+                                                cardID = swiftCardPositions[0];
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (armyHasSwiftUnit == false)
+                                        {
+                                            if (swiftCardPositions != null && swiftCardPositions.Count > 0)
+                                            {
+                                                cardID = swiftCardPositions[0];
+                                            }
+                                        }
+                                    }
+                                    SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, cardID);
+                                    if (card != null)
+                                    {
+                                        unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+                                    }
+                                    spawn = SpawnUnit(myPower, myArmyPos, (byte)cardID, unitPower, currentTick.V, ref myPower);
                                 }
                                 else // Build more wells or orbs // NGE05222024!!!!!
                                 {

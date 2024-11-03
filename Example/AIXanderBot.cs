@@ -3346,6 +3346,20 @@ namespace Bots
                             }
                         }
 
+                        Squad? nearestEnemy = null;
+
+                        // NGE11022024 
+                        GetClosestEnemy(myOrbs[0].Entity.Position.To2D(), out nearestEnemy, out enemyDistance);
+                        if (nearestEnemy != null && enemyDistance < 2 * enemyNearOrbDistance) // Want enough time to build power to build wall
+                        {
+                            unitsNeededBeforeAttack = 1;
+                        }
+                        else
+                        {
+                            unitsNeededBeforeAttack = defaultAttackSquads;
+                        }
+
+
                         #region Buid/Rebuild Orb if none exist!
                         if (myOrbs.Count == 0) // Rebuild Orb at start position!!
                         {
@@ -3459,12 +3473,13 @@ namespace Bots
                         }
                         #endregion
 
+                        // Squad? nearestEnemy = null;
                         if (enemyBuildingOrb == false)
                         {
                             #region Build/Repair wall if enemy near my orb
                             if (enemySquads.Count() > 0 && myOrbs.Count() > 0 && myWalls.Count() == 0)
                             {
-                                GetClosestEnemy(myOrbs[0].Entity.Position.To2D(), out Squad? nearestEnemy, out enemyDistance);
+                                GetClosestEnemy(myOrbs[0].Entity.Position.To2D(), out nearestEnemy, out enemyDistance);
                                 if (nearestEnemy != null && enemyDistance < enemyNearOrbDistance) // Want enough time to build power to build wall
                                 {
                                     buildNearbyWallAtStart = true;
@@ -3472,7 +3487,7 @@ namespace Bots
                             }
                             else if (enemySquads.Count() > 0 && myOrbs.Count() > 0 && myWalls.Count() > 0)
                             {
-                                GetClosestEnemy(myOrbs[0].Entity.Position.To2D(), out Squad? nearestEnemy, out enemyDistance);
+                                GetClosestEnemy(myOrbs[0].Entity.Position.To2D(), out nearestEnemy, out enemyDistance);
                                 if (nearestEnemy != null && enemyDistance < engageEnemyNearOrbDistance) // Make sure gate is closed!
                                 {
                                     Command? cmdCloseGate = ToggleGate(false, currentTick.V);

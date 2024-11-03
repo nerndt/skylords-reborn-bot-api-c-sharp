@@ -170,7 +170,7 @@ namespace Bots
         bool buildNearbyWellAtStart = false; // NGE11022024 true;
         bool buildNearbyOrbAtStart = false;
 
-        bool attackClosestSquad = false;
+        bool attackClosestSquad = true; // NGE11022024 false;
         bool attackClosestWell = false;
 
         bool isEnemyNearBase = false; // Is there an enemy near my Orb and am I already attacking it?

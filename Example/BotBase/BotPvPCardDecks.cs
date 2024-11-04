@@ -716,6 +716,7 @@ namespace Bots
             Cards = new Api.CardId[20]
 {
                 CardIdCreator.New(Api.CardTemplate.Wrecker, Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Scavenger, Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.Sunstriders, Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.Thugs, Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.Eruption, Upgrade.U3),
@@ -733,7 +734,6 @@ namespace Bots
                 CardIdCreator.New(Api.CardTemplate.DisenchantAShadow, Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.Ravage, Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.LavaField, Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.MutatingManiacAFire, Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.NightshadePlantAShadow, Upgrade.U3),
 }
         };

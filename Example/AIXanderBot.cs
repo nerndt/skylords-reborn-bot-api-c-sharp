@@ -996,7 +996,7 @@ namespace Bots
             if (SUPPORTED_MAPS.Contains(map))
             {
                 return new[] {
-                    PvPCardDecks.GiftedFlameNew, PvPCardDecks.GiftedFlame, TopDeck, BattleGrounds, FireNature,
+                    TopDeck, PvPCardDecks.GiftedFlameNew, PvPCardDecks.GiftedFlame, BattleGrounds, FireNature,
                     PvPCardDecks.TaintedDarkness, PvPCardDecks.GiftedDarkness, PvPCardDecks.BlessedDarkness, PvPCardDecks.InfusedDarkness,
                     PvPCardDecks.TaintedFlora, PvPCardDecks.GiftedFlora, PvPCardDecks.BlessedFlora, PvPCardDecks.InfusedFlora,
                     PvPCardDecks.TaintedIce, PvPCardDecks.GiftedIce, PvPCardDecks.BlessedIce, PvPCardDecks.InfusedIce,
@@ -3424,7 +3424,7 @@ namespace Bots
                         if (enemyOrbToAttack != null)
                         {
                             enemyBuildingOrb = false; // NGE110222024 !!!! Not working yet!! true;
-                            string message = string.Format("Enemy build another orb! EntityId={0}", enemyOrbToAttack.Entity.Id);
+                            string message = string.Format("Enemy building another orb! EntityId={0}", enemyOrbToAttack.Entity.Id);
                             ConsoleWriteLine(consoleWriteline, message);
                             // Attack the orb with any army units
                             /*
@@ -4895,7 +4895,7 @@ namespace Bots
                 if (archerCardPositions != null)
                 {
                     Command? spawnOnBarrier = null;
-                    foreach (var b in barrierModules)
+                    foreach (var b in barrierModules) // Choose the barriers on the ends of the wall!! Also, barriers must have a certain level of health or an archer can not mount it
                     {
                         var gateAspect = b.Entity.Aspects.FirstOrDefault(g => g.BarrierGate != null) ?? null;
                         if (b.Entity.PlayerEntityId == botState.myId && gateAspect == null) // When gateAspect == null then it is not a gate
@@ -5412,6 +5412,63 @@ namespace Bots
         }
 
         #region Special Decks
+        private static readonly Deck TopDeck = new()
+        {
+            Name = "TopDeck",
+            CoverCardIndex = 0,
+            Cards = new Api.CardId[20]
+  {
+                CardIdCreator.New(Api.CardTemplate.Wrecker, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Scavenger, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Sunstriders, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Mine, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Eruption, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Wallbreaker, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Enforcer, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Firedancer, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SkyfireDrake, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Ravage, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.CurseofOink, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.EnsnaringRoots, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.BreedingGrounds, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SurgeOfLight, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.SwampDrake, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Hurricane, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Burrower, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.StrangleholdAShadow, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Thunderstorm, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.DryadAFrost, Api.Upgrade.U3),
+  }
+        };
+
+        public static readonly DeckOfficialCardIds TopDeckCardIds = new()
+        {
+            Name = "TopDeck",
+            Ids = new int[20]
+    {
+                (int)Api.CardTemplate.Wrecker,
+                (int)Api.CardTemplate.Scavenger,
+                (int)Api.CardTemplate.Sunstriders,
+                (int)Api.CardTemplate.Mine,
+                (int)Api.CardTemplate.Eruption,
+                (int)Api.CardTemplate.Wallbreaker,
+                (int)Api.CardTemplate.Enforcer,
+                (int)Api.CardTemplate.Firedancer,
+                (int)Api.CardTemplate.SkyfireDrake,
+                (int)Api.CardTemplate.Ravage,
+                (int)Api.CardTemplate.CurseofOink,
+                (int)Api.CardTemplate.EnsnaringRoots,
+                (int)Api.CardTemplate.BreedingGrounds,
+                (int)Api.CardTemplate.SurgeOfLight,
+                (int)Api.CardTemplate.Sunstriders,
+                (int)Api.CardTemplate.Hurricane,
+                (int)Api.CardTemplate.Burrower,
+                (int)Api.CardTemplate.StrangleholdAShadow,
+                (int)Api.CardTemplate.Thunderstorm,
+                (int)Api.CardTemplate.DryadAFrost,
+    }
+        };
+
         private static readonly Deck BattleGrounds = new()
         {
             Name = "BattleGrounds",
@@ -5469,62 +5526,6 @@ namespace Bots
     }
         };
 
-        private static readonly Deck TopDeck = new()
-        {
-            Name = "TopDeck",
-            CoverCardIndex = 0,
-            Cards = new Api.CardId[20]
-    {
-                CardIdCreator.New(Api.CardTemplate.Wrecker, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Scavenger, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Sunstriders, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Mine, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Eruption, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Wallbreaker, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Enforcer, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Firedancer, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SkyfireDrake, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Ravage, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.CurseofOink, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.EnsnaringRoots, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.BreedingGrounds, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SurgeOfLight, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.SwampDrake, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Hurricane, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Burrower, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.StrangleholdAShadow, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.Thunderstorm, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.DryadAFrost, Api.Upgrade.U3),
-    }
-        };
-
-        public static readonly DeckOfficialCardIds TopDeckCardIds = new()
-        {
-            Name = "TopDeck",
-            Ids = new int[20]
-    {
-                (int)Api.CardTemplate.Wrecker,
-                (int)Api.CardTemplate.Scavenger,
-                (int)Api.CardTemplate.Sunstriders,
-                (int)Api.CardTemplate.Mine,
-                (int)Api.CardTemplate.Eruption,
-                (int)Api.CardTemplate.Wallbreaker,
-                (int)Api.CardTemplate.Enforcer,
-                (int)Api.CardTemplate.Firedancer,
-                (int)Api.CardTemplate.SkyfireDrake,
-                (int)Api.CardTemplate.Ravage,
-                (int)Api.CardTemplate.CurseofOink,
-                (int)Api.CardTemplate.EnsnaringRoots,
-                (int)Api.CardTemplate.BreedingGrounds,
-                (int)Api.CardTemplate.SurgeOfLight,
-                (int)Api.CardTemplate.Sunstriders,
-                (int)Api.CardTemplate.Hurricane,
-                (int)Api.CardTemplate.Burrower,
-                (int)Api.CardTemplate.StrangleholdAShadow,
-                (int)Api.CardTemplate.Thunderstorm,
-                (int)Api.CardTemplate.DryadAFrost,
-    }
-        };
 
         private static readonly Deck FireNature = new()
         {

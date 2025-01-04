@@ -15,6 +15,7 @@ using SkylordsRebornAPI.Cardbase.Cards;
 using System.Runtime.ConstrainedExecution;
 using System.Drawing;
 using static System.Net.Mime.MediaTypeNames;
+using System.Collections;
 
 // TODO Put archers on wall modules nearest to enemy.
 // Check code of when to attack enemy instead of target (typically enemy orb)
@@ -195,14 +196,16 @@ namespace Bots
         List<Squad> mySquads = new List<Squad>(); // Array.FindAll(state.Entities.Squads, x => x.Entity.Id == botState.myId).ToList();
         List<EntityId> myUnits = new List<EntityId>();
         int attackSquadCount = 0;
+        int previousAttackSquadsCount = 0; // If myDefendSquads changes, write info to console
         List<Squad>? myAttackSquads = null;
         int defendSquadCount = 0;
+        int previousDefendSquadsCount = 0; // If myDefendSquads changes, write info to console
         List<Squad>? myDefendSquads = null;
         List<Squad>? swiftAttackUnits = null;
         int minimumSwiftAttackUnits = 1; // Number of swift attack units to make
         int totalSwiftAttackUnits = 2; // Number of swift attack units to make
 
-        Dictionary<int, int> playableCards = null;
+        Dictionary<int, int> playableCards = new Dictionary<int, int>();
 
         // List<Squad> attackingEnemyNearBaseSquads = new List<Squad>(); // List of squads I have sent to attack enemy near my base
         List<Squad>? enemyAttackingSquads = null; // Enemies I need to fight right away
@@ -558,7 +561,7 @@ namespace Bots
             {
                 List<EntityId> squadsIds = squads.Select(s => s.Entity.Id).ToList();
                 string squadInfo = GetSquadsInfo(state, squads);
-                string message = string.Format("Attack target:{0} type:{1} with {2} squad(s) info {3}", target.V, targetType, squads.Count, squadInfo);
+                string message = string.Format("Attack target:{0} type:{1} with {2} squad(s) {3}", target.V, targetType, squads.Count, squadInfo);
                 // string message = string.Format("Attack target:{0} type:{1} at pos X,Y:{2},{3} with {4} squad(s)", target.V, targetType, (int)pos.X, (int)pos.Y, squads.Count);
                 if (message != previousMessageAttackType)
                 {
@@ -617,7 +620,7 @@ namespace Bots
         private Command? SpawnUnit(float myPower, Position2D pos, byte cardPos, int unitPower, uint tick, ref float powerRemaining)
         {
             byte cardPosition = cardPos;
-            if (cardChargesMade[cardPosition].Count >= cardMaxCharges[cardPosition])
+            if (cardChargesMade[cardPosition].Count >= cardMaxCharges[cardPosition]) // 4) // cardMaxCharges[cardPosition])
             {
                 if (playableCards != null && playableCards.Count > 1)
                 {
@@ -875,12 +878,11 @@ namespace Bots
             int orbsNature = 0;
             int orbsFrost = 0;
 
-            for (int c = 0; c < myCurrentDeckOfficialCardIds.Ids.Length; c++)
+            if (myCurrentDeckOfficialCardIds != null)
             {
-                int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[c];
-                if (unitOfficialCardId != 0) // Not a card
+                for (int c = 0; c < myCurrentDeckOfficialCardIds.Ids.Length; c++)
                 {
-                    SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
+                    SMJCard? card = myCurrentSMJCards[c];
                     if (card != null)
                     {
                         if (card.type == 0 && card.orbsTotal == 1 && orbColorTierOrder.Count() == 0) // // 0 - Unit, 1 - Building, 2 - Spell
@@ -1047,23 +1049,20 @@ namespace Bots
 
                 for (int c = 0; c < myCurrentDeckOfficialCardIds.Ids.Length; c++)
                 {
-                    int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[c];
-                    if (unitOfficialCardId != 0) // Not a card
+                    SMJCard? card = myCurrentSMJCards[c];
+
+                    if (card != null)
                     {
-                        SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                        if (card != null)
+                        if (card.orbsTotal <= totalOrbs) // // 0 - Unit, 1 - Building, 2 - Spell
                         {
-                            if (card.orbsTotal <= totalOrbs) // // 0 - Unit, 1 - Building, 2 - Spell
+                            if (card.orbsFire <= orbsFire && card.orbsNature <= orbsNature &&
+                                card.orbsFrost <= orbsFrost && card.orbsShadow <= orbsShadow &&
+                                card.orbsFireFrost <= (orbsFire + orbsFrost) && card.orbsFireNature <= (orbsFire + orbsNature) &&
+                                card.orbsFireShadow <= (orbsFire + orbsShadow) && card.orbsNatureFrost <= (orbsNature + orbsFrost) &&
+                                card.orbsShadowFrost <= (orbsShadow + orbsFrost) && card.orbsShadowNature <= (orbsShadow + orbsNature) &&
+                                card.orbsNeutral <= (orbsFire + orbsNature + orbsFrost + orbsShadow))
                             {
-                                if (card.orbsFire <= orbsFire && card.orbsNature <= orbsNature &&
-                                    card.orbsFrost <= orbsFrost && card.orbsShadow <= orbsShadow &&
-                                    card.orbsFireFrost <= (orbsFire + orbsFrost) && card.orbsFireNature <= (orbsFire + orbsNature) &&
-                                    card.orbsFireShadow <= (orbsFire + orbsShadow) && card.orbsNatureFrost <= (orbsNature + orbsFrost) &&
-                                    card.orbsShadowFrost <= (orbsShadow + orbsFrost) && card.orbsShadowNature <= (orbsShadow + orbsNature) &&
-                                    card.orbsNeutral <= (orbsFire + orbsNature + orbsFrost + orbsShadow))
-                                {
-                                    dictPlayableCards[c] = card.type;
-                                }
+                                dictPlayableCards[c] = card.type;
                             }
                         }
                     }
@@ -1346,24 +1345,14 @@ namespace Bots
             int maxCharges = 0;
             if (myCurrentDeckOfficialCardIds != null && cardsSMJ != null)
             {
-                int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPos]; // Starting unit for AI
-                if (unitOfficialCardId != 0) // Not a card
+                SMJCard? card = myCurrentSMJCards[cardPos];
+                if (card != null)
                 {
-                    SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                    if (card != null)
-                    {
-                        maxCharges = card.maxCharges;
-
-                        //if (botState.isGameStart == true)
-                        //{
-                        //    Console.WriteLine("Found Card Info:{0}", card.cardName);
-                        //    Console.WriteLine("Max Charges:{0} Unit Power:{1} Orbs:{2} Wells{3}", (int)myPower, maxCharges, myOrbs.Count(), myWells.Count());
-                        //}
-                    }
-                    else
-                    {
-                        Console.WriteLine("Card Not Found:ID{0}", unitOfficialCardId); // (int)SkylordsRebornAPI.Cardbase.CardTemplate.NomadANature);
-                    }
+                    maxCharges = card.maxCharges;
+                }
+                else
+                {
+                    Console.WriteLine("Card Not Found:ID{0}", cardPos); // (int)SkylordsRebornAPI.Cardbase.CardTemplate.NomadANature);
                 }
             }
             return maxCharges;
@@ -1374,24 +1363,20 @@ namespace Bots
             int unitPower = 0;
             if (myCurrentDeckOfficialCardIds != null && cardsSMJ != null)
             {
-                int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPos]; // Starting unit for AI
-                if (unitOfficialCardId != 0) // Not a card
+                SMJCard? card = myCurrentSMJCards[cardPos];
+                if (card != null)
                 {
-                    SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                    if (card != null)
-                    {
-                        unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+                    unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
 
-                        //if (botState.isGameStart == true)
-                        //{
-                        //    Console.WriteLine("Found Card Info:{0}", card.cardName);
-                        //    Console.WriteLine("My Power:{0} Unit Power:{1} Orbs:{2} Wells{3}", (int)myPower, unitPower, myOrbs.Count(), myWells.Count());
-                        //}
-                    }
-                    else
-                    {
-                        Console.WriteLine("Card Not Found:ID{0}", (int)SkylordsRebornAPI.Cardbase.CardTemplate.NomadANature);
-                    }
+                    //if (botState.isGameStart == true)
+                    //{
+                    //    Console.WriteLine("Found Card Info:{0}", card.cardName);
+                    //    Console.WriteLine("My Power:{0} Unit Power:{1} Orbs:{2} Wells{3}", (int)myPower, unitPower, myOrbs.Count(), myWells.Count());
+                    //}
+                }
+                else
+                {
+                    Console.WriteLine("Card Not Found:ID{0}", cardPos);
                 }
             }
             return unitPower;
@@ -1581,28 +1566,20 @@ namespace Bots
 
         public List<int>? GetCardHealth(int cardPositionInDeck)
         {
-            int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPositionInDeck];
-            if (unitOfficialCardId != 0) // Not a card
+            SMJCard? card = myCurrentSMJCards[cardPositionInDeck];
+            if (card != null)
             {
-                SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                if (card != null)
-                {
-                    return card.health;
-                }
+                return card.health;
             }
             return null;
         }
 
         public List<int>? GetCardDamage(int cardPositionInDeck)
         {
-            int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPositionInDeck];
-            if (unitOfficialCardId != 0) // Not a card
+            SMJCard? card = myCurrentSMJCards[cardPositionInDeck];
+            if (card != null)
             {
-                SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                if (card != null)
-                {
-                    return card.damage;
-                }
+                return card.damage;
             }
             return null;
         }
@@ -1729,7 +1706,7 @@ namespace Bots
                 float nearestSquadDistance = float.MaxValue;
                 foreach (var s in myAttackSquads) // if squad is near Entity, attack it
                 {
-                    if (archerCardPositions != null)
+                    if (archerCardPositions != null && archerCardPositions.Count() > 0)
                     {
                         if (s.CardId == currentDeck.Cards[(byte)archerCardPositions[0]])
                         {
@@ -1756,7 +1733,7 @@ namespace Bots
                 float nearestSquadDistance = float.MaxValue;
                 foreach (var s in myAttackSquads) // if squad is near Entity, attack it
                 {
-                    if (archerCardPositions != null)
+                    if (archerCardPositions != null && archerCardPositions.Count() > 0)
                     {
                         if (s.CardId == currentDeck.Cards[(byte)archerCardPositions[0]])
                         {
@@ -1784,7 +1761,7 @@ namespace Bots
             {
                 foreach (var s in myAttackSquads) // if squad is near Entity, attack it
                 {
-                    if (archerCardPositions != null)
+                    if (archerCardPositions != null && archerCardPositions.Count() > 0)
                     {
                         if (s.CardId == currentDeck.Cards[(byte)archerCardPositions[0]])
                         {
@@ -2021,13 +1998,8 @@ namespace Bots
 
         public SMJCard? GetCardFromCardId(Api.CardId cardId)
         {
-            SMJCard? card = null;
             int position = GetCardPositionFromCardID(cardId);
-            int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[position];
-            if (unitOfficialCardId != 0) // Not a card
-            {
-                card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-            }
+            SMJCard? card = myCurrentSMJCards[position];
             return card;
         }
 
@@ -2197,24 +2169,20 @@ namespace Bots
             // Get the deck cardIds from the matching currentDeck.Name
             DeckOfficialCardIds myCurrentDeckOfficialCardIds = myDeckOfficialCardIds.FirstOrDefault(d => d.Name == currentDeck.Name) ?? myDeckOfficialCardIds[0];
             // int unitPower = 75; // Nomad power cost - should be able to find info about card
-            int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[0]; // Starting unit for AI
-            if (unitOfficialCardId != 0) // Not a card
+            SMJCard? card = myCurrentSMJCards[0];
+            if (card != null)
             {
-                SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                if (card != null)
+                unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+                if (botState.isGameStart == true)
                 {
-                    unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
-                    if (botState.isGameStart == true)
-                    {
-                        Console.WriteLine("Found Card Info:{0}", card.cardName);
-                        Console.WriteLine("My Power:{0} Unit Power:{1} Orbs:{2} Wells{3}", (int)myPower, unitPower, myOrbs.Count(), myWells.Count());
-                        botState.isGameStart = false; // NGE04302024
-                    }
+                    Console.WriteLine("Found Card Info:{0}", card.cardName);
+                    Console.WriteLine("My Power:{0} Unit Power:{1} Orbs:{2} Wells{3}", (int)myPower, unitPower, myOrbs.Count(), myWells.Count());
+                    botState.isGameStart = false; // NGE04302024
                 }
-                else
-                {
-                    Console.WriteLine("Card Not Found:ID{0}", (int)SkylordsRebornAPI.Cardbase.CardTemplate.NomadANature);
-                }
+            }
+            else
+            {
+                Console.WriteLine("Card Not Found:ID{0}", (int)SkylordsRebornAPI.Cardbase.CardTemplate.NomadANature);
             }
 
             Position2D myArmyPos = botState.myStart; // Ideally place the army as close to center of map as possible to get places faster
@@ -2268,19 +2236,16 @@ namespace Bots
 
         private Command? SpawnArcher(List<Squad> myArmy, float myPower, Position2D pos, uint tick)
         {
-            if (archerCardPositions != null)
+            if (archerCardPositions != null && archerCardPositions.Count() > 0)
             {
                 byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
-                int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPosition]; // Starting unit for AI
-                if (unitOfficialCardId != 0) // Not a card
-                {
-                    SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                    if (card != null)
-                    {
-                        int unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+                SMJCard? card = myCurrentSMJCards[cardPosition];
 
-                        return SpawnUnit(myPower, pos, cardPosition, unitPower, tick, ref myPower); // Spawn unit in squad next to other units
-                    }
+                if (card != null)
+                {
+                    int unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+
+                    return SpawnUnit(myPower, pos, cardPosition, unitPower, tick, ref myPower); // Spawn unit in squad next to other units
                 }
             }
             return null;
@@ -2322,12 +2287,44 @@ namespace Bots
 
              */
 
-            if (archerCardPositions != null)
+            //if (archerCardPositions.Count() > 1)
+            //{
+            //    if (cardChargesMade[cardPosition].Count >= cardMaxCharges[cardPosition])
+            //    {
+            //        if (playableCards != null && playableCards.Count > 1)
+            //        {
+            //            foreach (KeyValuePair<int, int> kvp in playableCards)
+            //            {
+            //                if (kvp.Value == myCurrentSMJCards[cardPosition].type && kvp.Key != cardPosition && cardChargesMade[kvp.Key].Count < cardMaxCharges[kvp.Key])
+            //                {
+            //                    cardPosition = (byte)kvp.Key;
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+
+            /*
+            if (archerCardPositions != null && myCurrentDeckOfficialCardIds != null)
             {
                 byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
                 int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPosition]; // Starting unit for AI
                 if (unitOfficialCardId != 0) // Not a card
                 {
+                    if (cardChargesMade[cardPosition].Count >= cardMaxCharges[cardPosition])
+                    {
+                        if (playableCards != null && playableCards.Count > 1)
+                        {
+                            foreach (KeyValuePair<int, int> kvp in playableCards)
+                            {
+                                if (kvp.Value == myCurrentSMJCards[cardPosition].type && kvp.Key != cardPosition && cardChargesMade[kvp.Key].Count < cardMaxCharges[kvp.Key])
+                                {
+                                    cardPosition = (byte)kvp.Key;
+                                }
+                            }
+                        }
+                    }
+
                     SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
                     if (card != null)
                     {
@@ -2337,6 +2334,26 @@ namespace Bots
                     }
                 }
             }
+            */
+
+            /* */ // NGE01042025 Problem!!!
+            if (archerCardPositions != null && archerCardPositions.Count() > 0 && myCurrentDeckOfficialCardIds != null)
+            {
+                byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
+                if (cardChargesMade[cardPosition].Count >= cardMaxCharges[cardPosition])
+                {
+                    return null;
+                }
+                SMJCard? card = myCurrentSMJCards[cardPosition];
+
+                if (card != null)
+                {
+                    int powerCost = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+
+                    return SpawnUnitOnBarrier(myPower, pos, cardPosition, barrierModuleId, powerCost, tick, ref powerRemaining); // Spawn unit in squad next to other units
+                }
+            }
+            /* */ // NGE01042025 Problem!!!
             return null;
         }
 
@@ -3048,9 +3065,11 @@ namespace Bots
 
             // Count list of cardNames
             Dictionary<string, int> dictNameCount = new Dictionary<string, int>();
+            Dictionary<string, int> dictNameCardPos = new Dictionary<string, int>();
 
             string cardName = "";
-            foreach(var squad in squads)
+            int cardPos = 0;
+            foreach (var squad in squads)
             {
                 cardName = GetSquadInfo(state, squad);
                 if (dictNameCount.ContainsKey(cardName) == true)
@@ -3060,11 +3079,20 @@ namespace Bots
                 else
                 {
                     dictNameCount[cardName] = 1;
+                    cardPos = GetCardPositionFromCardID(squad.CardId);
+                    dictNameCardPos[cardName] = cardPos;
                 }
             }
-            foreach(var kvp in dictNameCount)
+            cardPos = 0;
+            if (dictNameCardPos.Count > 1)
             {
-                info += string.Format("{0}:{1} ", kvp.Key, kvp.Value);
+                int foo = 0;
+                foo = foo + 1;
+            }
+            foreach (var kvp in dictNameCount)
+            {
+                cardPos = dictNameCardPos[cardName];
+                info += string.Format("{0}:{1}:{2}:{3} ", kvp.Key, kvp.Value, cardChargesMade[cardPos].Count, cardMaxCharges[cardPos]);
             }
             return info;
         }
@@ -3595,21 +3623,19 @@ namespace Bots
                         if (s.Entity.PlayerEntityId == botState.myId)
                         {
                             GetSquadHealth(state, s, out double squadHealth, out List<EntityId> healthyUnits);
+                            int position = GetCardPositionFromCardID(s.CardId);
+                            if (position >= 0)
+                            {
+                                if (cardChargesMade[position].ContainsKey((int)s.Entity.Id.V) == false)
+                                {
+                                    cardChargesMade[position][(int)s.Entity.Id.V] = position;
+                                }
+                            }
                             if (squadHealth != 0)
                             {
                                 myUnits.Add(s.Entity.Id); // myUnits.AddRange(healthyUnits);
                                 //myArmies[s.ResSquadId.V] = s;
                                 mySquads.Add(s);
-
-                                int position = GetCardPositionFromCardID(s.CardId);
-                                if (position >= 0)
-                                {
-                                    if (cardChargesMade[position].ContainsKey((int)s.Entity.Id.V) == false)
-                                    {
-                                        cardChargesMade[position][(int)s.Entity.Id.V] = position;
-                                    }
-                                }
-
                             }
                         }
                         else if (s.Entity.PlayerEntityId != null && botState.oponents.Contains(s.Entity.PlayerEntityId))
@@ -3874,7 +3900,7 @@ namespace Bots
                                 buildNearbyWallAtStartWasTrue = true;
                                 if (buildArcherOnWallAtStart == true)
                                 {
-                                    if (archerCardPositions != null)
+                                    if (archerCardPositions != null && archerCardPositions.Count() > 0)
                                     {
                                         Command? spawn = null;
                                         Command? spawnOnBarrier = null;
@@ -3882,25 +3908,16 @@ namespace Bots
                                         byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
                                         var archerSquads = mySquads.Where(a => a.CardId == currentDeck.Cards[cardPosition]).ToList(); // See if I have any archers
 
-                                        int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPosition]; // Should be an archer
+                                        SMJCard? card = myCurrentSMJCards[cardPosition];
 
                                         int unitPowerArcher = 75; // Default power cost - should be able to find info about card
-                                        if (unitOfficialCardId != 0) // Not a card
+                                        if (card != null)
                                         {
-                                            SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                                            if (card != null)
-                                            {
-                                                unitPowerArcher = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
-                                                                                     //if (botState.isGameStart == true)
-                                                                                     //{
-                                                                                     //    Console.WriteLine("Found Card Info:{0}", card.cardName);
-                                                                                     //    Console.WriteLine("My Power:{0} Unit Power:{1} Orbs:{2} Wells{3}", (int)myPower, unitPower, myOrbs.Count(), myWells.Count());
-                                                                                     //}
-                                            }
-                                            else
-                                            {
-                                                Console.WriteLine("Card Not Found:ID{0}", (int)SkylordsRebornAPI.Cardbase.CardTemplate.NomadANature);
-                                            }
+                                            unitPowerArcher = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("Card Not Found:ID{0}", (int)SkylordsRebornAPI.Cardbase.CardTemplate.NomadANature);
                                         }
 
                                         if (archerOnWallAtStartBuilt == false && myPower > unitPowerArcher)
@@ -3912,6 +3929,19 @@ namespace Bots
                                                 archerOnWallAtStartBuilt = true;
 
                                                 commands.Add(commandSpawnArcherOnWall);
+
+                                                if (myAttackSquads != null && attackSquadCount > 0 && previousTargets != null && previousTargets.Count() > 0)
+                                                {
+                                                    GetSquadHealth(state, myAttackSquads[0], out double squadHealth, out List<EntityId> healthyUnits);
+                                                    if (squadHealth != 0)
+                                                    {
+                                                        Command? attack = Attack(state, previousTargets[0].Id, previousTargetTypes[0], myAttackSquads, previousTargets[0].Position.To2D(), unitsNeededBeforeAttack);
+                                                        if (attack != null)
+                                                        {
+                                                            commands.Add(attack);
+                                                        }
+                                                    }
+                                                }
                                                 return commands.ToArray();
                                             }
                                         }
@@ -4133,18 +4163,43 @@ namespace Bots
 
                                 #region Determine Attack and Defend Squads
                                 // How many defense units do I have?
-                                if (mySquads.Count() > 0 && archerCardPositions != null)
+                                if (mySquads.Count() > 0 && archerCardPositions != null && archerCardPositions.Count() > 0)
                                 {
                                     byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
                                     myDefendSquads = mySquads.Where(a => a.CardId == currentDeck.Cards[cardPosition]).ToList(); // See if I have any archers
                                     defendSquadCount = myDefendSquads.Count();
+                                    if (previousDefendSquadsCount != myDefendSquads.Count())
+                                    {
+                                        previousDefendSquadsCount = myDefendSquads.Count();
+                                        string squadsInfo = GetSquadsInfo(state, myDefendSquads);
+                                        string message = string.Format("Defend with {0} squad(s) {1}", myDefendSquads.Count(), squadsInfo);
+                                        Console.WriteLine(message);
+                                    }
                                 }
 
-                                if (mySquads.Count() > 0 && archerCardPositions != null)
+                                if (mySquads.Count() > 0 && archerCardPositions != null && archerCardPositions.Count > 0)
                                 {
                                     byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
                                     myAttackSquads = mySquads.Where(a => a.CardId != currentDeck.Cards[cardPosition]).ToList(); // See if I have any archers
                                     attackSquadCount = myAttackSquads.Count();
+                                    if (previousAttackSquadsCount != myAttackSquads.Count())
+                                    {
+                                        previousAttackSquadsCount = myAttackSquads.Count();
+                                        string squadsInfo = GetSquadsInfo(state, myAttackSquads);
+                                        string message = string.Format("Attack with {0} squad(s) {1}", myAttackSquads.Count(), squadsInfo);
+                                        Console.WriteLine(message);
+                                    }
+                                }
+                                else if (mySquads.Count() > 0)
+                                {
+                                    myAttackSquads = mySquads;
+                                    if (previousAttackSquadsCount != myAttackSquads.Count())
+                                    {
+                                        previousAttackSquadsCount = myAttackSquads.Count();
+                                        string squadsInfo = GetSquadsInfo(state, myAttackSquads);
+                                        string message = string.Format("Attack with {0} squad(s) {1}", myAttackSquads.Count(), squadsInfo);
+                                        Console.WriteLine(message);
+                                    }
                                 }
                                 #endregion Determine Attack and Defend Squads
 
@@ -4385,16 +4440,11 @@ namespace Bots
 
                                 if (isEnemyNearBase == true) // Keep attacking enemies near my orb base until gone!
                                 {
-                                    int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[0]; // Starting unit for AI
-
-                                    // Console.WriteLine("Tick CardID:{0}", unitOfficialCardId);
-                                    if (unitOfficialCardId != 0) // Not a card
+                                    int cardPos = 0;
+                                    SMJCard? card = myCurrentSMJCards[cardPos];
+                                    if (card != null)
                                     {
-                                        SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                                        if (card != null)
-                                        {
-                                            unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
-                                        }
+                                        unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
                                     }
                                     if (myWalls.Count() > 0 && mySquads.Count() == 0)
                                     {
@@ -4501,27 +4551,35 @@ namespace Bots
                                     // NGE11022024 EntityId myWallId = myWalls[0].Entity.Id;
 
                                     //spawn = SpawnArcherOnBarrier(myArmy, myPower, botState.myStart, myWallId, unitPower, currentTick.V); // wallPos
-                                    if (archerCardPositions != null)
+                                    if (archerCardPositions != null && archerCardPositions.Count() > 0)
                                     {
                                         byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
-                                        int unitOfficialCardId = myCurrentDeckOfficialCardIds.Ids[cardPosition]; // Should be an archer
-
+                                        SMJCard? card = myCurrentSMJCards[cardPosition];
                                         int unitPowerArcher = 75; // Default power cost - should be able to find info about card
-                                        if (unitOfficialCardId != 0) // Not a card
+                                        if (card != null)
                                         {
-                                            SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, unitOfficialCardId);
-                                            if (card != null)
-                                            {
-                                                unitPowerArcher = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
-                                            }
+                                            unitPowerArcher = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
                                         }
 
-                                        if (myWalls.Count > 0)
+                                        if (myWalls != null && myWalls.Count > 0)
                                         {
                                             Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPowerArcher, ref myPower);
                                             if (commandSpawnArcherOnWall != null)
                                             {
                                                 commands.Add(commandSpawnArcherOnWall);
+                                                
+                                                if (myAttackSquads != null && attackSquadCount > 0 && previousTargets != null && previousTargets.Count() > 0)
+                                                {
+                                                    GetSquadHealth(state, myAttackSquads[0], out double squadHealth, out List<EntityId> healthyUnits);
+                                                    if (squadHealth != 0)
+                                                    {
+                                                        attack = Attack(state, previousTargets[0].Id, previousTargetTypes[0], myAttackSquads, previousTargets[0].Position.To2D(), unitsNeededBeforeAttack);
+                                                        if (attack != null)
+                                                        {
+                                                            commands.Add(attack);
+                                                        }
+                                                    }
+                                                }
                                                 return commands.ToArray();// NGE05122024!!!!!! return commands.ToArray();
                                             }
                                         }
@@ -4564,7 +4622,7 @@ namespace Bots
                                     int cardID = 0; // Default card ID
                                                     
                                     bool armyHasSwiftUnit = false; // If army does not have a swift unit, make one!
-                                    if (myAttackSquads != null && myAttackSquads.Count > 0)
+                                    if (myAttackSquads != null && myAttackSquads.Count > 0 && swiftCardPositions != null)
                                     {
                                         if (swiftAttackUnits == null)
                                         {
@@ -4590,7 +4648,7 @@ namespace Bots
                                         if (armyHasSwiftUnit == false)
                                         {
                                             int cardPos = swiftCardPositions[0];
-                                            if (cardChargesMade[cardPos].Count >= cardMaxCharges[cardPos])
+                                            if (cardChargesMade[cardPos].Count >= cardMaxCharges[cardPos]) // 4) // NGE01042025 cardMaxCharges[cardPos])
                                             {
                                                 if (playableCards != null && playableCards.Count > 1)
                                                 {
@@ -4599,6 +4657,7 @@ namespace Bots
                                                         if (kvp.Value == myCurrentSMJCards[cardPos].type && kvp.Key != cardPos && cardChargesMade[kvp.Key].Count < cardMaxCharges[kvp.Key])
                                                         {
                                                             cardID = (byte)kvp.Key;
+                                                            break;
                                                         }
                                                     }
                                                 }
@@ -4623,7 +4682,7 @@ namespace Bots
                                             if (swiftCardPositions != null && swiftCardPositions.Count > 0)
                                             {
                                                 int cardPos = swiftCardPositions[0];
-                                                if (cardChargesMade[cardPos].Count >= cardMaxCharges[cardPos])
+                                                if (cardChargesMade[cardPos].Count >= cardMaxCharges[cardPos]) // 4) // NGE01042025 cardMaxCharges[cardPos])
                                                 {
                                                     if (playableCards != null && playableCards.Count > 1)
                                                     {
@@ -4632,6 +4691,7 @@ namespace Bots
                                                             if (kvp.Value == myCurrentSMJCards[cardPos].type && kvp.Key != cardPos && cardChargesMade[kvp.Key].Count < cardMaxCharges[kvp.Key])
                                                             {
                                                                 cardID = (byte)kvp.Key;
+                                                                break;
                                                             }
                                                         }
                                                     }
@@ -4657,10 +4717,15 @@ namespace Bots
                                             }
                                         }
                                     }
-                                    SMJCard? card = GetCardFromOfficialCardId(cardsSMJ, cardID);
+                                    SMJCard? card = myCurrentSMJCards[cardID]; //  GetCardFromOfficialCardId(cardsSMJ, cardID);
                                     if (card != null)
                                     {
                                         unitPower = card.powerCost[3]; // Assume unit fully upgraded for now!!!!
+                                    }
+                                    else
+                                    {
+                                        int foo = 0;
+                                        foo = foo + 1;
                                     }
                                     spawn = SpawnUnit(myPower, myArmyPos, (byte)cardID, unitPower, currentTick.V, ref myPower);
                                 }
@@ -5348,8 +5413,13 @@ namespace Bots
                 Position2D wallPos = wall.Position.To2D(); // Get nearest wall pos
                 EntityId myWallId = myWalls[0].Entity.Id;
 
-                if (archerCardPositions != null)
+                if (archerCardPositions != null && archerCardPositions.Count() > 0  && myCurrentDeckOfficialCardIds != null)
                 {
+                    byte cardPosition = (byte)archerCardPositions[0]; // Get first archer for now
+                    if (cardChargesMade[cardPosition].Count >= cardMaxCharges[cardPosition])
+                    {
+                        return null;
+                    }
                     Command? spawnOnBarrier = null;
                     foreach (var b in barrierModules) // Choose the barriers on the ends of the wall!! Also, barriers must have a certain level of health or an archer can not mount it
                     {
@@ -5876,6 +5946,7 @@ namespace Bots
   {
                 CardIdCreator.New(Api.CardTemplate.Wrecker, Api.Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.Scavenger, Api.Upgrade.U3),
+                CardIdCreator.New(Api.CardTemplate.Thugs, Api.Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.Sunstriders, Api.Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.Mine, Api.Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.Eruption, Api.Upgrade.U3),
@@ -5893,7 +5964,6 @@ namespace Bots
                 CardIdCreator.New(Api.CardTemplate.Burrower, Api.Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.StrangleholdAShadow, Api.Upgrade.U3),
                 CardIdCreator.New(Api.CardTemplate.Thunderstorm, Api.Upgrade.U3),
-                CardIdCreator.New(Api.CardTemplate.DryadAFrost, Api.Upgrade.U3),
   }
         };
 
@@ -5904,6 +5974,7 @@ namespace Bots
     {
                 (int)Api.CardTemplate.Wrecker,
                 (int)Api.CardTemplate.Scavenger,
+                (int)Api.CardTemplate.Thugs,
                 (int)Api.CardTemplate.Sunstriders,
                 (int)Api.CardTemplate.Mine,
                 (int)Api.CardTemplate.Eruption,
@@ -5921,7 +5992,6 @@ namespace Bots
                 (int)Api.CardTemplate.Burrower,
                 (int)Api.CardTemplate.StrangleholdAShadow,
                 (int)Api.CardTemplate.Thunderstorm,
-                (int)Api.CardTemplate.DryadAFrost,
     }
         };
 

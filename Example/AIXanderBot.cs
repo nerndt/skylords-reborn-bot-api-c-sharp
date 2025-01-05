@@ -146,7 +146,7 @@ namespace Bots
 
         #endregion SMJCards JSON info
 
-        string botVersion = "0.1.04.2025";
+        string botVersion = "0.1.05.2025";
 
         bool consoleWriteline = false; // Flag to track issues - when competition, set to false to try and improve 
 
@@ -157,7 +157,6 @@ namespace Bots
         int unitPower = 75; // Power needed to build a specific game card
 
         int unitsNeededBeforeAttack = 6; // Must be <= defaultAttackSquads
-        bool enemyBuildingOrb = false; // If enemy building second orb, go attack right away!
         int defaultTickUpdateRate = 2;
         int defaultAttackSquads = 6; // For now do not build more than X attack units
         int defaultDefendSquads = 6; // For now do not build more than X defend units
@@ -198,6 +197,7 @@ namespace Bots
         int attackSquadCount = 0;
         int previousAttackSquadsCount = 0; // If myDefendSquads changes, write info to console
         List<Squad>? myAttackSquads = null;
+        List<Command> attackEnemy = new List<Command>();
         int defendSquadCount = 0;
         int previousDefendSquadsCount = 0; // If myDefendSquads changes, write info to console
         List<Squad>? myDefendSquads = null;
@@ -539,7 +539,7 @@ namespace Bots
         }
 
         string previousMessageAttackType = "";
-        private Command? Attack(GameState state, EntityId target, string targetType, List<Squad> squads, Position2D pos, int unitsNeededBeforeAttack)
+        private Command? Attack(GameState state, EntityId target, string targetType, List<Squad> squads, Position2D pos, int unitsNeededBeforeAttack, float myPower)
         {
             int squadSize = 0;
             if (squads.Count > 0)
@@ -562,7 +562,7 @@ namespace Bots
             {
                 List<EntityId> squadsIds = squads.Select(s => s.Entity.Id).ToList();
                 string squadInfo = GetSquadsInfo(state, squads);
-                string message = string.Format("Attack target:{0} type:{1} with {2} squad(s) {3}", target.V, targetType, squads.Count, squadInfo);
+                string message = string.Format("Attack target:{0} type:{1} with {2} squad(s) {3} Power {4}", target.V, targetType, squads.Count, squadInfo, (int)myPower);
                 // string message = string.Format("Attack target:{0} type:{1} at pos X,Y:{2},{3} with {4} squad(s)", target.V, targetType, (int)pos.X, (int)pos.Y, squads.Count);
                 if (message != previousMessageAttackType)
                 {
@@ -2698,6 +2698,16 @@ namespace Bots
                 }
                 // See if enemyAttackingSquads are near orb
                 bool enemyNearOrb = false;
+                enemyNearOrb = IsEnemyNearBase(45f, out List<Squad> enemySquadAttackingNearBase); // NGE0105225 // 75 seems to include nearby well or orb
+                if (enemyNearOrb == true)
+                {
+                    enemyAttackingSquads = enemySquadAttackingNearBase;
+                }
+                else
+                {
+                    enemyAttackingSquads = null;
+                }
+
                 if (enemyAttackingSquads != null && enemyAttackingSquads.Count() > 0)
                 {
                     foreach (var s in enemyAttackingSquads)
@@ -3703,17 +3713,20 @@ namespace Bots
                         emptyWalls = emptyBarriers0 != null ? emptyBarriers0.ToList() : new List<BarrierSet>();
                         float nearestEnemyObjectDistance = float.MaxValue;
 
+                        if (enemyOrbs == null || (enemyOrbs != null && enemyOrbs.Count == 1))
+                        {
+                            attackEnemy.Clear(); // Only create when more than 2 orbs
+                        }
+
                         #region See if enemy is building an orb
-                        bool enemyBuildingOrb = false;
                         TokenSlot? enemyOrbStateInProgress = null;
                         TokenSlot[] TotalOrbs = state.Entities.TokenSlots;
                         // NGE01022025 
                         foreach (TokenSlot slot in TotalOrbs)
                         {
-                            if (slot.State == BuildState.InProgress)
+                            if (slot.State == BuildState.InProgress && slot.Entity.PlayerEntityId != botState.myId)
                             {
-                                enemyOrbStateInProgress = slot;
-                                enemyBuildingOrb = true;
+                                // enemyOrbStateInProgress = slot;
                                 break;
                             }
                         }
@@ -3723,7 +3736,7 @@ namespace Bots
 
                         float enemyDistance = float.MaxValue;
 
-                        if (enemyBuildingOrb == true || isEnemyNearBase == true) // NGE01012025 Added  || isEnemyNearBase == true
+                        if (enemyOrbStateInProgress != null || isEnemyNearBase == true) // NGE01012025 Added  || isEnemyNearBase == true
                         {
                             unitsNeededBeforeAttack = 1;
                         }
@@ -3814,7 +3827,6 @@ namespace Bots
                         }
                         if (enemyOrbToAttack != null)
                         {
-                            enemyBuildingOrb = false; // NGE110222024 !!!! Not working yet!! true;
                             string message = string.Format("Enemy building another orb! EntityId={0}", enemyOrbToAttack.Entity.Id);
                             ConsoleWriteLine(consoleWriteline, message);
                             // Attack the orb with any army units
@@ -3858,14 +3870,10 @@ namespace Bots
 
                             */
                         }
-                        else
-                        {
-                            enemyBuildingOrb = false;
-                        }
                         #endregion
 
                         // Squad? nearestEnemy = null;
-                        if (enemyBuildingOrb == false)
+                        if (enemyOrbStateInProgress == null)
                         {
                             #region Build/Repair wall if enemy near my orb
                             if (enemySquads.Count() > 0 && myOrbs.Count() > 0 && myWalls.Count() == 0)
@@ -3948,12 +3956,12 @@ namespace Bots
                                                     }
                                                 }
 
-                                                if (myAttackSquads != null && attackSquadCount > 0 && previousTargets != null && previousTargets.Count() > 0)
+                                                if (attackEnemy.Count == 0 && myAttackSquads != null && attackSquadCount > 0 && previousTargets != null && previousTargets.Count() > 0)
                                                 {
                                                     GetSquadHealth(state, myAttackSquads[0], out double squadHealth, out List<EntityId> healthyUnits);
                                                     if (squadHealth != 0)
                                                     {
-                                                        Command? attack = Attack(state, previousTargets[0].Id, previousTargetTypes[0], myAttackSquads, previousTargets[0].Position.To2D(), unitsNeededBeforeAttack);
+                                                        Command? attack = Attack(state, previousTargets[0].Id, previousTargetTypes[0], myAttackSquads, previousTargets[0].Position.To2D(), unitsNeededBeforeAttack, myPower);
                                                         if (attack != null)
                                                         {
                                                             commands.Add(attack);
@@ -4441,7 +4449,6 @@ namespace Bots
 
                                 Command? spawn = null;
                                 Command? attack = null;
-                                Command? attackEnemy = null;
                                 Command? cmdOpenGate = null;
 
                                 #region If enemy has more than 1 orb, attack it immediately!! // NGE01022025 
@@ -4450,25 +4457,110 @@ namespace Bots
                                 {
                                     enemyOrbCount = enemyOrbs.Count;
                                 }
-                                if ((myAttackSquads != null && myAttackSquads.Count > 0) && (enemyBuildingOrb == true || (enemyOrbCount > 1)))
+                                if (myAttackSquads != null && myAttackSquads.Count > 0 && (enemyOrbStateInProgress != null || (enemyOrbCount > 1)))
                                 {
-                                    Command? attacknearestEnemyOrb = null;
+                                    #region Split up attack squad and attack both enemy units and orb!
+                                    List<Squad> myAttackSquadsEnemyUnits = myAttackSquads;
+                                    List<Squad> myAttackSquadsEnemyOrbs = myAttackSquads;
+                                    int remainingAttackUnits = 0;
+                                    if (enemySquads != null && enemySquads.Count > 0)
+                                    {
+                                        int attackEnemyUnitsCount = enemySquads.Count + 1;
+                                        if (myAttackSquads.Count > attackEnemyUnitsCount) 
+                                        {
+                                            myAttackSquadsEnemyUnits = myAttackSquads.Take(attackEnemyUnitsCount).ToList();
+                                            remainingAttackUnits = myAttackSquads.Count - myAttackSquadsEnemyUnits.Count;
+
+                                            myAttackSquadsEnemyOrbs = myAttackSquads.GetRange(Math.Max(0, myAttackSquads.Count - remainingAttackUnits), Math.Min(remainingAttackUnits, myAttackSquads.Count));
+                                        }
+                                    }
+                                    #endregion Split up attack squad and attack both enemy units and orb!
+
                                     float nearestOrbDistanceSq = float.MaxValue;
+                                    float nearestEnemyDistanceSq = float.MaxValue;
+                                    // int maxEnemyUnitAttackers = 2;
+                                    int enemyUnitAttackers = 0;
+                                    int maxEnemyOrbAttackers = 2;
+                                    int enemyOrbAttackers = 0;
+                                    attackEnemy.Clear();
+                                    int enemySquadCount = 0;
+                                    if (enemySquads != null && enemySquads.Count > 0)
+                                    {
+                                        enemySquadCount = enemySquads.Count;
+                                    }
+                                    foreach (var squad in myAttackSquads)
+                                    {
+                                        List<Squad> squadList = new List<Squad> { squad };
+                                        Command? cmdAttackEnemy = null;
+                                        Command? cmdAttackOrb = null;
+                                        if (enemyOrbStateInProgress != null)
+                                        {
+                                            cmdAttackOrb = GetNearestEnemyOrb(enemyOrbStateInProgress, squadList, out nearestOrbDistanceSq);
+                                        }
+                                        else if (enemyOrbs != null)
+                                        {
+                                            cmdAttackOrb = GetNearestEnemyOrb(enemyOrbs, squadList, out nearestOrbDistanceSq);
+                                        }
+                                        if (enemySquadCount > 0 && enemySquads != null)
+                                        {
+                                            cmdAttackEnemy = GetNearestEnemy(enemySquads, squadList, out nearestEnemyDistanceSq);
+                                        }
+                                        if (enemySquadCount > 0)
+                                        {
+                                            if (cmdAttackOrb != null && 
+                                                nearestOrbDistanceSq < nearestEnemyDistanceSq &&
+                                                enemyOrbAttackers < maxEnemyOrbAttackers) // Attack with maxEnemyOrbAttackers
+                                            {
+                                                enemyOrbAttackers += 1;
+                                                attackEnemy.Add(cmdAttackOrb);
+                                            }
+                                            else
+                                            {
+                                                enemyUnitAttackers += 1;
+                                                attackEnemy.Add(cmdAttackEnemy);
+                                            }
+                                        }
+                                        else if (cmdAttackOrb != null)
+                                        {
+                                            attackEnemy.Add(cmdAttackOrb);
+                                        }
+                                        else if (cmdAttackEnemy != null && enemySquadCount > 0)
+                                        {
+                                            enemyUnitAttackers += 1;
+                                            attackEnemy.Add(cmdAttackEnemy);
+                                        }
+                                    }
+
+                                    int foo = 0;
+                                    foo = foo + 1;
+
+                                    /* // NGE01052025
+                                    Command? attacknearestEnemyOrb = null;
                                     if (enemyOrbStateInProgress != null)
                                     {
-                                        attackEnemy = attacknearestEnemyOrb = GetNearestEnemyOrb(enemyOrbStateInProgress, myAttackSquads, out nearestOrbDistanceSq);
+                                        Command? cmd = GetNearestEnemyOrb(enemyOrbStateInProgress, myAttackSquads, out nearestOrbDistanceSq);
+                                        attacknearestEnemyOrb = GetNearestEnemyOrb(enemyOrbStateInProgress, myAttackSquads, out nearestOrbDistanceSq);
+                                        if (attacknearestEnemyOrb != null)
+                                        {
+                                            attackEnemy = new List<Command> { attacknearestEnemyOrb };
+                                        }
                                     }
-                                    else
+                                    else if (enemyOrbs != null)
                                     {
-                                        attackEnemy = attacknearestEnemyOrb = GetNearestEnemyOrb(enemyOrbs, myAttackSquads, out nearestOrbDistanceSq);
+                                        attacknearestEnemyOrb = GetNearestEnemyOrb(enemyOrbs, myAttackSquads, out nearestOrbDistanceSq);
+                                        if (attacknearestEnemyOrb != null)
+                                        {
+                                            attackEnemy = new List<Command> { attacknearestEnemyOrb };
+                                        }
                                     }
+                                    
                                     float nearestEnemyDistanceSq = float.MaxValue;
                                     Command? attacknearestEnemy = null;
                                     if (enemySquads != null && enemySquads.Count > 0)
                                     {
-                                        attackEnemy = attacknearestEnemy = GetNearestEnemy(enemySquads, myAttackSquads, out nearestEnemyDistanceSq);
+                                        attackEnemy = attacknearestEnemy = GetNearestEnemy(enemySquads, myAttackSquadsEnemyUnits, out nearestEnemyDistanceSq);
                                     }
-                                    if (attacknearestEnemyOrb != null && nearestOrbDistanceSq < nearestEnemyDistanceSq)
+                                    if (attacknearestEnemyOrb != null && nearestOrbDistanceSq < nearestEnemyDistanceSq) // Attack with first 2 units
                                     {
                                         commands.Add(attacknearestEnemyOrb);
                                         // NGE01022025 return commands.ToArray(); 
@@ -4478,6 +4570,7 @@ namespace Bots
                                         commands.Add(attacknearestEnemy);
                                         // NGE01022025 return commands.ToArray(); 
                                     }
+                                    */ // NGE01052025
                                 }
                                 #endregion If enemy has more than 1 orb, attack it immediately!! // NGE01022025
 
@@ -4606,33 +4699,46 @@ namespace Bots
 
                                         if (myWalls != null && myWalls.Count > 0)
                                         {
-                                            Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPowerArcher, ref myPower);
-                                            if (commandSpawnArcherOnWall != null)
+                                            int enemyAttackingSquadsCount = 0;
+                                            if (enemyAttackingSquads != null)
                                             {
-                                                commands.Add(commandSpawnArcherOnWall);
-
-                                                if (myDefendSquads != null)
+                                                enemyAttackingSquadsCount = enemyAttackingSquads.Count;
+                                            }
+                                            int myDefendSquadsCount = 0;
+                                            if (myDefendSquads != null)
+                                            {
+                                                myDefendSquadsCount = myDefendSquads.Count;
+                                            }
+                                            if (myDefendSquadsCount < enemyAttackingSquadsCount)
+                                            {
+                                                Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPowerArcher, ref myPower);
+                                                if (commandSpawnArcherOnWall != null)
                                                 {
-                                                    myPreviousDefendSquads = new List<Squad>();
-                                                    foreach (var squad in myDefendSquads)
-                                                    {
-                                                        myPreviousDefendSquads.Add(squad);
-                                                    }
-                                                }
+                                                    commands.Add(commandSpawnArcherOnWall);
 
-                                                if (myAttackSquads != null && attackSquadCount > 0 && previousTargets != null && previousTargets.Count() > 0)
-                                                {
-                                                    GetSquadHealth(state, myAttackSquads[0], out double squadHealth, out List<EntityId> healthyUnits);
-                                                    if (squadHealth != 0)
+                                                    if (myDefendSquads != null)
                                                     {
-                                                        attack = Attack(state, previousTargets[0].Id, previousTargetTypes[0], myAttackSquads, previousTargets[0].Position.To2D(), unitsNeededBeforeAttack);
-                                                        if (attack != null)
+                                                        myPreviousDefendSquads = new List<Squad>();
+                                                        foreach (var squad in myDefendSquads)
                                                         {
-                                                            commands.Add(attack);
+                                                            myPreviousDefendSquads.Add(squad);
                                                         }
                                                     }
+
+                                                    if (attackEnemy.Count == 0 && myAttackSquads != null && attackSquadCount > 0 && previousTargets != null && previousTargets.Count() > 0)
+                                                    {
+                                                        GetSquadHealth(state, myAttackSquads[0], out double squadHealth, out List<EntityId> healthyUnits);
+                                                        if (squadHealth != 0)
+                                                        {
+                                                            attack = Attack(state, previousTargets[0].Id, previousTargetTypes[0], myAttackSquads, previousTargets[0].Position.To2D(), unitsNeededBeforeAttack, myPower);
+                                                            if (attack != null)
+                                                            {
+                                                                commands.Add(attack);
+                                                            }
+                                                        }
+                                                    }
+                                                    return commands.ToArray();// NGE05122024!!!!!! return commands.ToArray();
                                                 }
-                                                return commands.ToArray();// NGE05122024!!!!!! return commands.ToArray();
                                             }
                                         }
                                     }
@@ -5280,13 +5386,26 @@ namespace Bots
                                     {
                                         cmdOpenGate = OpenGateWhenNeeded(currentTick);
 
-                                        attackEnemy = Attack(state, enemyAttackingSquads[0].Entity.Id, "squad", engageEnemyAttackingSquads, targetEntity.Position.To2D(), unitsNeededBeforeAttack);
+                                        if (attackEnemy == null)
+                                        {
+                                            attackEnemy = new List<Command>();
+
+                                            Command? cmdAttackEnemy = Attack(state, enemyAttackingSquads[0].Entity.Id, "squad", engageEnemyAttackingSquads, targetEntity.Position.To2D(), unitsNeededBeforeAttack, myPower);
+                                            if (cmdAttackEnemy != null)
+                                            {
+                                                //if (attackEnemy == null)
+                                                //{
+                                                //    attackEnemy = new List<Command>();
+                                                //}
+                                                attackEnemy.Add(cmdAttackEnemy);
+                                            }
+                                        }
                                     }
                                     if (myAttackingSquadsUpdated != null && myAttackingSquadsUpdated.Count() > 0)
                                     {
                                         cmdOpenGate = OpenGateWhenNeeded(currentTick);
 
-                                        attack = Attack(state, target, targetType, myAttackingSquadsUpdated, targetEntity.Position.To2D(), unitsNeededBeforeAttack);
+                                        attack = Attack(state, target, targetType, myAttackingSquadsUpdated, targetEntity.Position.To2D(), unitsNeededBeforeAttack, myPower);
                                     }
                                 }
                                 else // Attack original target!
@@ -5295,7 +5414,7 @@ namespace Bots
                                     {
                                         cmdOpenGate = OpenGateWhenNeeded(currentTick);
 
-                                        attack = Attack(state, target, targetType, squads, targetEntity.Position.To2D(), unitsNeededBeforeAttack);
+                                        attack = Attack(state, target, targetType, squads, targetEntity.Position.To2D(), unitsNeededBeforeAttack, myPower);
                                     }
                                 }
 
@@ -5309,11 +5428,11 @@ namespace Bots
                                     }
                                 }
 
-                                if (spawn == null && attack == null && attackEnemy == null)
+                                if (spawn == null && attack == null && (attackEnemy == null || (attackEnemy != null && attackEnemy.Count == 0)))
                                 {
                                     // return Array.Empty<Command>();
                                 }
-                                else if (spawn != null && attack != null && attackEnemy != null)
+                                else if (spawn != null && attack != null && attackEnemy != null && attackEnemy.Count > 0)
                                 {
                                     if (botState.isGameStart == true)
                                     {
@@ -5324,10 +5443,13 @@ namespace Bots
                                     {
                                         commands.Add(cmdOpenGate);
                                     }
-                                    commands.Add(attackEnemy);
+                                    foreach (var cmd in attackEnemy)
+                                    {
+                                        commands.Add(cmd);
+                                    }
                                     commands.Add(attack);
                                 }
-                                else if (spawn != null && attack != null && attackEnemy == null)
+                                else if (spawn != null && attack != null && attackEnemy.Count == 0)
                                 {
                                     if (botState.isGameStart == true)
                                     {
@@ -5340,7 +5462,7 @@ namespace Bots
                                     }
                                     commands.Add(attack);
                                 }
-                                else if (spawn != null && attack == null && attackEnemy != null)
+                                else if (spawn != null && attack == null && attackEnemy.Count > 0)
                                 {
                                     if (botState.isGameStart == true)
                                     {
@@ -5351,7 +5473,10 @@ namespace Bots
                                     {
                                         commands.Add(cmdOpenGate);
                                     }
-                                    commands.Add(attackEnemy);
+                                    foreach (var cmd in attackEnemy)
+                                    {
+                                        commands.Add(cmd);
+                                    }
                                 }
                                 else if (spawn != null)
                                 {
@@ -5372,7 +5497,10 @@ namespace Bots
                                         commands.Add(cmdOpenGate);
                                     }
                                     commands.Add(attack);
-                                    commands.Add(attackEnemy);
+                                    foreach (var cmd in attackEnemy)
+                                    {
+                                        commands.Add(cmd);
+                                    }
                                 }
                                 else if (attack == null && attackEnemy != null)
                                 {
@@ -5384,7 +5512,10 @@ namespace Bots
                                     {
                                         commands.Add(cmdOpenGate);
                                     }
-                                    commands.Add(attackEnemy);
+                                    foreach (var cmd in attackEnemy)
+                                    {
+                                        commands.Add(cmd);
+                                    }
                                 }
                                 else if (attack != null)
                                 {

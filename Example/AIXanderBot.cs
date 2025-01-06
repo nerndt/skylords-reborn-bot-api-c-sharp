@@ -142,7 +142,7 @@ namespace Bots
         //public List<int> damage { get; set; } // 4 levels attack power
         //public List<int> health { get; set; } // 4 levels health at start
         //public List<int> boosters { get; set; } // None, "Mini, General, "Fire, Shadow, "Nature, Frost, "Bandits, Stonekin, "Twilight, Lost Souls, "Amii, Fire/Frost
-        public readonly string[] UpgradeMaps = { "None", "Encounter With Twilight", "Siege of Hope", "Defending Hope", "The Soultree", "The Treasure Fleet", "Behind Enemy Lines", "Mo", "Ocean", "Oracle", "Crusade", "Sunbridge", "Nightmare Shard", "Nightmare's End", "The Insane God", "Slave master", "Convoy", "Bad Harvest", "King of the Giants", "Titan", "The Dwarven Riddle", "The guns of Lyr", "Blight", "Raven's End", "Empire" };
+        public readonly string[] UpgradeMaps = { "None", "EnCounter With Twilight", "Siege of Hope", "Defending Hope", "The Soultree", "The Treasure Fleet", "Behind Enemy Lines", "Mo", "Ocean", "Oracle", "Crusade", "Sunbridge", "Nightmare Shard", "Nightmare's End", "The Insane God", "Slave master", "Convoy", "Bad Harvest", "King of the Giants", "Titan", "The Dwarven Riddle", "The guns of Lyr", "Blight", "Raven's End", "Empire" };
 
         #endregion SMJCards JSON info
 
@@ -157,7 +157,7 @@ namespace Bots
         int unitPower = 75; // Power needed to build a specific game card
 
         int unitsNeededBeforeAttack = 6; // Must be <= defaultAttackSquads
-        int defaultTickUpdateRate = 2;
+        int defaultTickUpdateRate = 1; // NGE01052025 2;
         int defaultAttackSquads = 6; // For now do not build more than X attack units
         int defaultDefendSquads = 6; // For now do not build more than X defend units
 
@@ -233,7 +233,7 @@ namespace Bots
 
         DeckOfficialCardIds? myCurrentDeckOfficialCardIds = null; // myDeckOfficialCardIds.FirstOrDefault(d => d.Name == botState.selectedDeck.Name) ?? myDeckOfficialCardIds[0];
         List<SMJCard> myCurrentSMJCards = new(); // List of all card info for current chosen deck
-        List<Dictionary<int, int>> cardChargesMade = new List<Dictionary<int, int>>(); // Dictionary of how many cards (by deck position! and card creation count key and EntityID value) have been created so far in this game
+        List<Dictionary<int, int>> cardChargesMade = new List<Dictionary<int, int>>(); // Dictionary of how many cards (by deck position! and card creation Count key and EntityID value) have been created so far in this game
         List<int> cardMaxCharges = new List<int>(); // List of how many cards (by deck position!) have been created so far in this game
 
         int? wreckerCardPosition = null; // Is there a wrecker card in the deck?
@@ -562,12 +562,13 @@ namespace Bots
             {
                 List<EntityId> squadsIds = squads.Select(s => s.Entity.Id).ToList();
                 string squadInfo = GetSquadsInfo(state, squads);
-                string message = string.Format("Attack target:{0} type:{1} with {2} squad(s) {3} Power {4}", target.V, targetType, squads.Count, squadInfo, (int)myPower);
+                string message = string.Format("Attack target:{0} type:{1} with {2} squad(s) {3}", target.V, targetType, squads.Count, squadInfo);
+                string messagePower = string.Format("Attack target:{0} type:{1} with {2} squad(s) {3} Power {4}", target.V, targetType, squads.Count, squadInfo, (int)myPower);
                 // string message = string.Format("Attack target:{0} type:{1} at pos X,Y:{2},{3} with {4} squad(s)", target.V, targetType, (int)pos.X, (int)pos.Y, squads.Count);
                 if (message != previousMessageAttackType)
                 {
                     previousMessageAttackType = message;
-                    Console.WriteLine(message);
+                    Console.WriteLine(messagePower);
                 }
                 previousAttackPos = pos;
                 previousSquadCount = squads.Count;
@@ -2055,6 +2056,8 @@ namespace Bots
             return null;
         }
 
+        string previousMessageRepairWall = "";
+
         public Command? RepairWall(BarrierSet barrier, List<BarrierModule> modules, float myPower, ref float powerRemaining)
         {
             // If a barrier module has less than a certain % health, then repair the barrier
@@ -2075,7 +2078,11 @@ namespace Bots
                         if (moduleAspectHealth == null) // This should mean a module is fully broken so I can attack something else!
                         {
                             string message = string.Format("Repair WallId:{0}", barrier.Entity.Id);
-                            Console.WriteLine(message);
+                            if (message != previousMessageRepairWall)
+                            {
+                                previousMessageRepairWall = message;
+                                Console.WriteLine(message);
+                            }
                             powerRemaining = MathF.Max(0, myPower - barrierModuleCost); // (moduleAspectHealth.Health.CapCurrentMax - moduleAspectHealth.Health.CurrentHp); // NGE05222024 
                             Command command = new CommandBarrierRepair
                             {
@@ -2722,10 +2729,11 @@ namespace Bots
 
                 if (myPower > orbCost && MathF.Sqrt(DistanceSquared(pos, nearestOrbPosition)) < 15 && enemyNearOrb == false) // Close enough to build orb and no enemy units by orb!
                 {
-                    string message = string.Format("Build nearest OrbId:{0} at pos:{1},{2} with Power:{3}", nearestOrb, (int)nearestOrbPosition.X, (int)nearestOrbPosition.Y, (int)myPower);
+                    string message = string.Format("Build nearest OrbId:{0} at pos:{1},{2}", nearestOrb, (int)nearestOrbPosition.X, (int)nearestOrbPosition.Y);
+                    string messagePower = string.Format("Build nearest OrbId:{0} at pos:{1},{2} with Power:{3}", nearestOrb, (int)nearestOrbPosition.X, (int)nearestOrbPosition.Y, (int)myPower);
                     if (message != previousBuildNearestOrbByPosMessage)
                     {
-                        Console.WriteLine(message);
+                        Console.WriteLine(messagePower);
                         previousBuildNearestOrbByPosMessage = message;
                     }
                     command = new CommandTokenSlotBuild
@@ -3532,6 +3540,9 @@ namespace Bots
             return commands;
         }
 
+        string previousBuildRebuildMessage;
+        string previousRebuildMessage;
+
         public Command[] SendCommands(GameState state, Deck currentDeck)
         {
             /*
@@ -3685,7 +3696,7 @@ namespace Bots
                             playableCards = GetPlayableCards(myOrbs.ToList());
                         }
 
-                        // Code below does not take into account the health of the squads
+                        // Code below does not take into acCount the health of the squads
                         // Squad[] mySquads0 = Array.FindAll(state.Entities.Squads, x => x.Entity.PlayerEntityId == botState.myId);
                         // mySquads = mySquads0 != null ? mySquads0.ToList() : new List<Squad>();
 
@@ -3700,7 +3711,7 @@ namespace Bots
                         enemyWalls = enemyBarriers0 != null ? enemyBarriers0.ToList() : new List<BarrierSet>();
                         enemyWallModules = enemyWalls0 != null ? enemyWalls0.ToList() : new List<BarrierModule>();
 
-                        // Code below does not take into account the health of the squads
+                        // Code below does not take into acCount the health of the squads
                         // Squad[] enemySquads0 = Array.FindAll(state.Entities.Squads, x => (x.Entity.PlayerEntityId != null && botState.oponents.Contains(x.Entity.PlayerEntityId)));
                         // enemySquads = enemySquads0 != null ? enemySquads0.ToList() : new List<Squad>();
 
@@ -3765,12 +3776,18 @@ namespace Bots
                         }
 
                         #region Buid/Rebuild Orb if none exist!
-                        if (myOrbs.Count == 0) // Rebuild Orb at start position!!
+                        if (myOrbs != null && myOrbs.Count == 0) // Rebuild Orb at start position!!
                         {
                             Command? cmd = BuildNearestOrbByPos(myPower, out myPower, botState.myStart, orbColorBuildOrder[0], currentTick.V, out bool orbBuilt);
                             if (cmd != null)
                             {
-                                ConsoleWriteLine(true, $"Build/Rebuild orb at botState.myStart Pos: {(int)botState.myStart.X},{(int)botState.myStart.Y} with Power:{(int)myPower}");
+                                string message = $"Build/Rebuild orb at botState.myStart Pos: {(int)botState.myStart.X},{(int)botState.myStart.Y}";
+                                if (message != previousBuildRebuildMessage)
+                                {
+                                    previousBuildRebuildMessage = message;
+                                    string messageWithPower = $"Build/Rebuild orb at botState.myStart Pos: {(int)botState.myStart.X},{(int)botState.myStart.Y} with Power:{(int)myPower}";
+                                    ConsoleWriteLine(true, messageWithPower);
+                                }
                                 commands.Add(cmd);
                                 if (myPower < 150)
                                 {
@@ -3781,8 +3798,8 @@ namespace Bots
                             {
                                 if (myWells.Count > 0)
                                 {
-                                    //int counter = myWells.Count - 1;
-                                    //for (int i = counter; i >= 0; i--) // Start with last well made since probably farthest away
+                                    //int Counter = myWells.Count - 1;
+                                    //for (int i = Counter; i >= 0; i--) // Start with last well made since probably farthest away
                                     //{
                                     //    PowerSlot well = myWells[i];
                                     //    Command? cmdNewOrb = BuildNearestOrbByPos(myPower, out myPower, well.Entity.Position.To2D(), orbColorBuildOrder[0], currentTick.V, out bool orbBuiltNew);
@@ -4077,12 +4094,18 @@ namespace Bots
                             }
 
                             #region Buid/Rebuild Orb if none exist!
-                            if (myOrbs.Count == 0) // Rebuild Orb at start position!!
+                            if (myOrbs != null && myOrbs.Count == 0) // Rebuild Orb at start position!!
                             {
                                 Command? cmd = BuildNearestOrbByPos(myPower, out myPower, botState.myStart, orbColorBuildOrder[0], currentTick.V, out bool orbBuilt);
                                 if (cmd != null)
                                 {
-                                    ConsoleWriteLine(true, $"Build/Rebuild orb at botState.myStart Pos: {(int)botState.myStart.X},{(int)botState.myStart.Y} with Power:{(int)myPower}");
+                                    string message = $"Build/Rebuild orb at botState.myStart Pos: {(int)botState.myStart.X},{(int)botState.myStart.Y}";
+                                    if (message != previousBuildRebuildMessage)
+                                    {
+                                        previousBuildRebuildMessage = message;
+                                        string messageWithPower = $"Build/Rebuild orb at botState.myStart Pos: {(int)botState.myStart.X},{(int)botState.myStart.Y} with Power:{(int)myPower}";
+                                        ConsoleWriteLine(true, messageWithPower);
+                                    }
                                     commands.Add(cmd);
                                     if (myPower < 150)
                                     {
@@ -4093,8 +4116,8 @@ namespace Bots
                                 {
                                     if (myWells.Count > 0)
                                     {
-                                        //int counter = myWells.Count - 1;
-                                        //for (int i = counter; i >= 0; i--) // Start with last well made since probably farthest away
+                                        //int Counter = myWells.Count - 1;
+                                        //for (int i = Counter; i >= 0; i--) // Start with last well made since probably farthest away
                                         //{
                                         //    PowerSlot well = myWells[i];
                                         //    Command? cmdNewOrb = BuildNearestOrbByPos(myPower, out myPower, well.Entity.Position.To2D(), orbColorBuildOrder[0], currentTick.V, out bool orbBuiltNew);
@@ -4424,7 +4447,7 @@ namespace Bots
                                 string targetType = "";
 
                                 Squad? attackSquad = null;
-                                if (attackSquadCount > 0)
+                                if (attackSquadCount > 0 && enemyOrbs != null)
                                 {
                                     foreach (var s in enemyOrbs) // Attack enemy Orbs
                                     {
@@ -4433,15 +4456,18 @@ namespace Bots
                                         {
                                             armyPosDistanceToOrb = armyPosDistanceToOrbTemp;
                                         }
-                                        foreach (Squad squad in myAttackSquads)
+                                        if (myAttackSquads != null)
                                         {
-                                            float squadDistanceToOrb = DistanceSquared(squad.Entity.Position.To2D(), s.Entity.Position);
-                                            if (squadDistanceToOrb < nearestOrbDistance)
+                                            foreach (Squad squad in myAttackSquads)
                                             {
-                                                nearestOrbDistance = squadDistanceToOrb;
-                                                targetOrb = s.Entity.Id;
-                                                targetEntityOrb = s.Entity;
-                                                attackSquad = squad;
+                                                float squadDistanceToOrb = DistanceSquared(squad.Entity.Position.To2D(), s.Entity.Position);
+                                                if (squadDistanceToOrb < nearestOrbDistance)
+                                                {
+                                                    nearestOrbDistance = squadDistanceToOrb;
+                                                    targetOrb = s.Entity.Id;
+                                                    targetEntityOrb = s.Entity;
+                                                    attackSquad = squad;
+                                                }
                                             }
                                         }
                                     }
@@ -4709,7 +4735,7 @@ namespace Bots
                                             {
                                                 myDefendSquadsCount = myDefendSquads.Count;
                                             }
-                                            if (myDefendSquadsCount < enemyAttackingSquadsCount)
+                                            if (myDefendSquadsCount < Math.Min(enemyAttackingSquadsCount, defaultDefendSquads))
                                             {
                                                 Command? commandSpawnArcherOnWall = SpawnArcherOnWall(myWalls[0].Entity, myWallModules, currentTick.V, myPower, unitPowerArcher, ref myPower);
                                                 if (commandSpawnArcherOnWall != null)
@@ -5302,19 +5328,29 @@ namespace Bots
                                     // Go attack the opponent's orb
                                     if (enemyOrbs.Count() > 0)
                                     {
-                                        target = enemyOrbs[0].Entity.Id;
+                                        target = null; // enemyOrbs[0].Entity.Id;
+                                        targetEntity = null; // NGE01052025
+                                        var orbTarget = enemyOrbs.Where(o => o.Entity.Id.V != 0).FirstOrDefault();
+                                        if (orbTarget != null)
+                                        {
+                                            target = orbTarget.Entity.Id;
+                                            targetEntity = orbTarget.Entity; // NGE01052025 
+                                        }
                                     }
                                     else if (enemyWells.Count() > 0)
                                     {
                                         target = enemyWells[0].Entity.Id;
+                                        targetEntity = enemyWells[0].Entity; // NGE01052025 
                                     }
                                     else if (enemySquads.Count() > 0)
                                     {
                                         target = enemySquads[0].Entity.Id;
+                                        targetEntity = enemySquads[0].Entity; // NGE01052025 
                                     }
                                     else if (enemyWallModules.Count() > 0)
                                     {
                                         target = enemyWallModules[0].Entity.Id;
+                                        targetEntity = enemyWallModules[0].Entity; // NGE01052025 
                                     }
                                 }
 
@@ -5807,13 +5843,13 @@ namespace Bots
         {
             List<EntityId> wellIds = wells.Keys.ToList();
             powerRemaining = myPower;
-            int counter = 0;
+            int Counter = 0;
             for (int i = 0; i < wellIds.Count; i++)
             {
                 {
                     Position2D pos1 = wells[wellIds[i]].Pos;
-                    counter++;
-                    for (int j = counter; j < wellIds.Count; j++)
+                    Counter++;
+                    for (int j = Counter; j < wellIds.Count; j++)
                     {
                         Position2D pos2 = wells[wellIds[j]].Pos;
                         if (MathF.Sqrt(DistanceSquared(pos1, pos2)) < 15)
@@ -5839,13 +5875,13 @@ namespace Bots
         {
             List<EntityId> obIds = orbs.Keys.ToList();
             powerRemaining = myPower;
-            int counter = 0;
+            int Counter = 0;
             for (int i = 0; i < obIds.Count; i++)
             {
                 {
                     Position2D pos1 = orbs[obIds[i]].Pos;
-                    counter++;
-                    for (int j = counter; j < obIds.Count; j++)
+                    Counter++;
+                    for (int j = Counter; j < obIds.Count; j++)
                     {
                         Position2D pos2 = orbs[obIds[j]].Pos;
                         if (MathF.Sqrt(DistanceSquared(pos1, pos2)) < 15)
@@ -6451,7 +6487,7 @@ namespace Bots
             Spam units in deck slot 1 and move to Opponent (like the demo example)
             Erupt a well while it is build (5ms time window)
             Erupt when 3 Units are close (and one is <300 HP)
-            Scan all units on the map (or an area) and find the best counter (based on HP)
+            Scan all units on the map (or an area) and find the best Counter (based on HP)
             Find closest well und build it
 
         XanderLord Notes:
